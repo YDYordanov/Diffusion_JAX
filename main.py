@@ -3,22 +3,24 @@ This is an implementation of diffusion models in JAX
 """
 
 from models import FFN
-from utils import load_mnist_images, load_mnist_labels
+from utils import load_mnist_images, load_mnist_labels, DataLoader
 
 
 def main():
+    b_size = 16
+
     # Load the dataset
+    # ToDo: do a train/dev split
     data_folder = 'data/MNIST'
     x_train = load_mnist_images(file_name='train-images.idx3-ubyte', data_folder=data_folder)
     y_train = load_mnist_labels(file_name='train-labels.idx1-ubyte', data_folder=data_folder)
-    print(x_train.shape, y_train.shape)
-
-    # ToDo: do a train/dev split
-
-    # ToDo: do batching (maybe via jax classes)
+    x_train_loader = DataLoader(data_array=x_train, b_size=b_size, seed=2309, do_shuffle=True)
+    y_train_loader = DataLoader(data_array=y_train, b_size=b_size, seed=2085, do_shuffle=True)
 
     x_test = load_mnist_images(file_name='t10k-images.idx3-ubyte', data_folder=data_folder)
     y_test = load_mnist_labels(file_name='t10k-labels.idx1-ubyte', data_folder=data_folder)
+    x_test_loader = DataLoader(data_array=x_test, b_size=100)
+    y_test_loader = DataLoader(data_array=y_test, b_size=100)
 
     # Number of pixels in each image
     in_size = x_train.shape[1] * x_train.shape[2]
