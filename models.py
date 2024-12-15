@@ -27,8 +27,8 @@ class FFN:
 
 
     def forward(self, x):
-        assert x.shape[0] * x.shape[1] == self.in_size
-        x = x.reshape(1, -1)  # flatten the image dimensions
+        assert x.shape[1] * x.shape[2] == self.in_size
+        x = x.reshape(x.shape[0], -1)  # flatten the image dimensions
 
         hid_state = jnp.matmul(x, self.W) + self.b
         hid_state = nn.gelu(hid_state)

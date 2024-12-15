@@ -47,9 +47,9 @@ class DataLoader:
             self.data_array = self.data_array[: -num_extra_examples]
         # Second, separate the batches
         num_examples = self.data_array.shape[0]
-        examples_per_batch = num_examples // self.b_size
+        num_batches = num_examples // self.b_size
         additional_dims = self.data_array.shape[1:]
-        new_shape = (self.b_size, examples_per_batch) + additional_dims
+        new_shape = (num_batches, self.b_size) + additional_dims
         self.data_array = self.data_array.reshape(new_shape)
 
         print('Data array shape:', self.data_array.shape)
