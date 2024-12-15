@@ -58,15 +58,15 @@ class FFN:
             #print(predictions)
 
 
-    def run_epoch(self, x_data, y_data):
-        for batch_id, (x, y) in enumerate(zip(x_data, y_data)):
+    def run_epoch(self, x_train_data: jnp.array, y_train_data: jnp.array,
+                  x_dev_data: jnp.array, y_dev_data: jnp.array):
+        for batch_id, (x, y) in enumerate(zip(x_train_data, y_train_data)):
             out = self.forward(x)
             #print('Output:', out)
             loss = self.cross_entropy_loss(out, y)
             #print('Loss:', loss)
 
             if batch_id % 10 == 0:
-                # Training evaluation
-                # ToDo: replace this with dev evaluation
-                self.evaluate(x_data, y_data)
+                # Dev evaluation
+                self.evaluate(x_dev_data, y_dev_data)
             #loss.backward()
