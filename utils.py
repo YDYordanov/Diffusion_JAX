@@ -2,6 +2,7 @@
 Data and other utilities
 """
 import os
+import jax.random as jrand
 import numpy as np
 
 
@@ -42,18 +43,22 @@ class DataLoader:
         # Cut the data into batches of size b_size
         # First, discard additional examples for simplicity
         num_extra_examples = self.data_array.shape[0] % self.b_size
-        self.data_array = self.data_array[: -num_extra_examples]
+        if num_extra_examples != 0:
+            self.data_array = self.data_array[: -num_extra_examples]
         # Second, separate the batches
         num_examples = self.data_array.shape[0]
         examples_per_batch = num_examples // self.b_size
-        print(self.data_array.shape)
         additional_dims = self.data_array.shape[1:]
-        print(additional_dims)
-        self.data_array = self.data_array.reshape(
-            (self.b_size, examples_per_batch) + additional_dims)
+        new_shape = (self.b_size, examples_per_batch) + additional_dims
+        self.data_array = self.data_array.reshape(new_shape)
+
+        print('Data array shape:', self.data_array.shape)
 
         # Randomly shuffle the batches given a seed
         # ToDo: implement this
+        if do_shuffle:
+            key = jrand.PRNGKey(seed)
+            self.data_array = jrand.permutation(key, self.data_array, axis=0)
 
     def get_batch(self):
         pass
