@@ -6,6 +6,7 @@ from models import run_epoch, evaluate_model, ffn_jax
 from utils import (process_mnist, random_train_dev_split,
                    DataLoader, print_image)
 from jax import random
+from jax.nn.initializers import glorot_normal
 
 import optax
 
@@ -28,9 +29,9 @@ def main():
 
     # Set training parameters
     b_size = 64
-    h_size = 128
+    h_size = 32
     out_size = 10  # num classes
-    num_epochs = 1
+    num_epochs = 10
     lr = 1e-3
     # The input size equals the #pixels in each image
     in_size = x_train.shape[1] * x_train.shape[2]
@@ -49,12 +50,14 @@ def main():
     test_data_loader = DataLoader(x_data_array=x_test,y_data_array=y_test, b_size=100)
 
     # Initialise the parameters
+    # Xavier initialisation
+    init_fn = glorot_normal()
     params = {
         'layer1': {
-            'W': random.normal(random.PRNGKey(12), (in_size, h_size)),
+            'W': init_fn(random.PRNGKey(12), (in_size, h_size)),
             'b': random.normal(random.PRNGKey(1322), (h_size))},
         'projection': {
-            'W': random.normal(random.PRNGKey(23), (h_size, 1)),
+            'W': init_fn(random.PRNGKey(23), (h_size, out_size)),
             'b': random.normal(random.PRNGKey(125), (out_size))}
     }
 

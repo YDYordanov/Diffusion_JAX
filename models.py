@@ -34,7 +34,7 @@ def cross_entropy_loss(out: jnp.array, y: jnp.array, num_classes: int):
     y_vector = nn.one_hot(y, num_classes=num_classes)
 
     # Compute log-likelihood loss w.r.t. y_vector
-    l = - (jnp.log(out_probs) * y_vector).sum(axis=-1).mean(axis=-1)
+    l = - (jnp.log(out_probs) * y_vector).sum(axis=-1).mean()
 
     return l
 
@@ -86,7 +86,7 @@ def evaluate_model(
         out = model_fn(params, x)
         # Model predictions
         predictions = out.argmax(axis=-1)
-        num_correct += sum(predictions == y)
+        num_correct += (predictions == y).sum()
         num_all += predictions.shape[0]
         num_batches += 1
         total_loss += cross_entropy_loss(out, y, num_classes)
