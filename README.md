@@ -7,22 +7,21 @@ This is a coding exercise in implementing image models and diffusion in JAX.
 **Note:** I am new to JAX, 
 diffusion, and image models.
 
-Using JAX from: [https://github.com/jax-ml/jax](https://github.com/jax-ml/jax) and the MNIST dataset 
-from: https://yann.lecun.com/exdb/mnist/. Altern
+Using JAX from: [https://github.com/jax-ml/jax](https://github.com/jax-ml/jax).
 
 
 ## Setup and Installation
 
-First, download and unzip the MNIST dataset from https://yann.lecun.com/exdb/mnist/, or from a mirror such as:
+1. Download and unzip the MNIST dataset from https://yann.lecun.com/exdb/mnist/, or from a mirror such as:
 https://github.com/mkolod/MNIST.
 
-Second, run:
+2. Run in terminal:
 
 ```
 conda create -n jax python anaconda
 ```
 
-Third, for NVIDIA GPUs:
+3. For NVIDIA GPUs, run in terminal:
 
 ```
 pip3 install -U "jax[cuda12]"
