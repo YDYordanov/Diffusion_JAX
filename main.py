@@ -31,8 +31,9 @@ def main():
     b_size = 64
     h_size = 32
     out_size = 10  # num classes
-    num_epochs = 10
+    num_epochs = 1
     lr = 1e-3
+    do_test = False  # test evaluation
     # The input size equals the #pixels in each image
     in_size = x_train.shape[1] * x_train.shape[2]
     assert in_size == 784  # for MNIST
@@ -82,14 +83,15 @@ def main():
             eval_interval=100
         )
 
-    # Test-evaluate the final model
-    evaluate_model(
-        model_fn=ffn_jax,
-        params=params,
-        x_test_data=test_data_loader.x_data_array,
-        y_test_data=test_data_loader.y_data_array,
-        num_classes=out_size
-    )
+    if do_test:
+        # Test-evaluate the final model
+        evaluate_model(
+            model_fn=ffn_jax,
+            params=params,
+            x_test_data=test_data_loader.x_data_array,
+            y_test_data=test_data_loader.y_data_array,
+            num_classes=out_size
+        )
 
 if __name__ == "__main__":
     main()
