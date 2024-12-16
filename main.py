@@ -27,7 +27,7 @@ def main():
     #print_image(x_test[data_id])
 
     # Set training parameters
-    b_size = 16
+    b_size = 64
     h_size = 128
     out_size = 10  # num classes
     num_epochs = 1
@@ -38,7 +38,7 @@ def main():
     print('Input size: {} pixels'.format(in_size))
 
     # Do a random train/dev split
-    dev_proportion = 0.1
+    dev_proportion = 0.05
     random_split_seed = 235790
     x_train_new, y_train_new, x_dev, y_dev = random_train_dev_split(
         x_data=x_train, y_data=y_train, dev_proportion=dev_proportion, seed=random_split_seed
@@ -46,7 +46,6 @@ def main():
 
     train_loader = DataLoader(x_data_array=x_train_new, y_data_array=y_train_new, b_size=b_size)
     dev_data_loader = DataLoader(x_data_array=x_dev, y_data_array=y_dev, b_size=b_size)
-    print(x_test.shape, y_test.shape)
     test_data_loader = DataLoader(x_data_array=x_test,y_data_array=y_test, b_size=100)
 
     # Initialise the parameters
@@ -76,14 +75,18 @@ def main():
             y_train_data=train_loader.y_data_array,
             x_dev_data=dev_data_loader.x_data_array,
             y_dev_data=dev_data_loader.y_data_array,
-            num_classes=out_size)
+            num_classes=out_size,
+            eval_interval=100
+        )
 
     # Test-evaluate the final model
     evaluate_model(
         model_fn=ffn_jax,
         params=params,
         x_test_data=test_data_loader.x_data_array,
-        y_test_data=test_data_loader.y_data_array)
+        y_test_data=test_data_loader.y_data_array,
+        num_classes=out_size
+    )
 
 if __name__ == "__main__":
     main()
