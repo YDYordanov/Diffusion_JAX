@@ -44,6 +44,7 @@ def process_mnist(file_name: str, data_folder: str):
             cols = struct.unpack('>I', f.read(4))[0]
             # Read image data (unsigned bytes)
             data = np.frombuffer(f.read(), dtype=np.uint8).reshape(num_items, rows, cols)
+            data = data / 255.0  # normalise to [0, 1]
         else:
             raise ValueError(f"Invalid IDX file: magic number {magic}")
 
