@@ -18,7 +18,7 @@ https://github.com/mkolod/MNIST.
 2. Run in terminal:
 
 ```
-conda create -n jax python anaconda
+conda create -n jax optax python anaconda
 ```
 
 3. For NVIDIA GPUs, run in terminal:
