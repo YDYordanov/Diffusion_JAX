@@ -7,7 +7,7 @@ This is a coding exercise in implementing image models and diffusion in JAX.
 **Note:** I am new to JAX, 
 diffusion, and image models.
 
-Using JAX from: [https://github.com/jax-ml/jax](https://github.com/jax-ml/jax).
+Using JAX from: [https://github.com/jax-ml/jax](https://github.com/jax-ml/jax) and the MNIST dataset from: https://yann.lecun.com/exdb/mnist/. 
 
 
 ## Installation Instructions
