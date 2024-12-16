@@ -30,7 +30,9 @@ def main():
     b_size = 16
     h_size = 128
     out_size = 10  # num classes
-    # Number of pixels in each image
+    num_epochs = 1
+    lr = 1e-3
+    # The input size equals the #pixels in each image
     in_size = x_train.shape[1] * x_train.shape[2]
     assert in_size == 784  # for MNIST
     print('Input size: {} pixels'.format(in_size))
@@ -41,10 +43,6 @@ def main():
     x_train_new, y_train_new, x_dev, y_dev = random_train_dev_split(
         x_data=x_train, y_data=y_train, dev_proportion=dev_proportion, seed=random_split_seed
     )
-
-    data_id = 2359
-    print('image id:', y_dev[data_id])
-    print_image(x_dev[data_id])
 
     train_loader = DataLoader(x_data_array=x_train_new, y_data_array=y_train_new, b_size=b_size)
     dev_data_loader = DataLoader(x_data_array=x_dev, y_data_array=y_dev, b_size=b_size)
@@ -61,16 +59,16 @@ def main():
             'b': random.normal(random.PRNGKey(125), (out_size))}
     }
 
-    lr = 1e-3
     # Create the optimiser and optimiser state
     optim = optax.adamw(learning_rate=lr)
     opt_state = optim.init(params)
 
-    for epoch in range(1):
+    for epoch in range(num_epochs):
         # Shuffle the data at each epoch;
         # the first shuffle may be redundant
         data_shuffle_seed = 2304
         train_loader.do_shuffle(seed=data_shuffle_seed * (epoch + 1))
+        # Run one epoch of training
         params, optim, opt_state = run_epoch(
             model_fn=ffn_jax, params=params,
             optim=optim, opt_state=opt_state,
@@ -79,6 +77,8 @@ def main():
             x_dev_data=dev_data_loader.x_data_array,
             y_dev_data=dev_data_loader.y_data_array,
             num_classes=out_size)
+
+    # Test-evaluate the final model
     evaluate_model(
         model_fn=ffn_jax,
         params=params,
