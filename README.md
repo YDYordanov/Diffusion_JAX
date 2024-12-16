@@ -1,8 +1,11 @@
 # Diffusion_JAX
 
-This is a coding exercise in implementing diffusion models in JAX.
+This is a coding exercise in implementing image models and diffusion in JAX.
 
-**Note:** this is a work in development; for educational purposes only.
+**Note:** This is a work in development; for educational purposes only.
+
+**Note:** I am new to JAX, 
+diffusion, and image models.
 
 Using JAX from: [https://github.com/jax-ml/jax](https://github.com/jax-ml/jax).
 
