@@ -28,8 +28,8 @@ def process_mnist(file_name: str, data_folder: str):
     """
     Reads an IDX file and returns the data as a NumPy array.
     """
-    filename = os.path.join(data_folder, file_name)
-    with open(filename, 'rb') as f:
+    file_path = os.path.join(data_folder, file_name)
+    with open(file_path, 'rb') as f:
         # Read the magic number
         magic = struct.unpack('>I', f.read(4))[0]
         # Read the number of items (labels or images)
