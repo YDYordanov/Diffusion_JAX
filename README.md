@@ -1,4 +1,4 @@
-# Diffusion_JAX
+# Image Models and Diffusion in JAX
 
 This is a coding exercise in implementing image models and diffusion in JAX.
 
