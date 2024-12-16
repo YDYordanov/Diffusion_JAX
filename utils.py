@@ -4,31 +4,50 @@ Data and other utilities
 import os
 import jax.random as jrand
 import jax.numpy as jnp
+import matplotlib.pyplot as plt
 import numpy as np
+
+import struct
+
+
+def print_image(image_array):
+    """
+    Display an image from a 2-D array
+    """
+    assert len(image_array.shape) == 2
+
+    # From ChatGPT
+    plt.imshow(np.array(image_array), cmap='gray')
+    plt.axis('off')  # Turn off axes for a cleaner look
+    plt.show()
 
 
 # Process the unzipped MNIST images
 # Adapted from ChatGPT
-def load_mnist_images(file_name: str, data_folder: str):
+def process_mnist(file_name: str, data_folder: str):
+    """
+    Reads an IDX file and returns the data as a NumPy array.
+    """
     filename = os.path.join(data_folder, file_name)
     with open(filename, 'rb') as f:
-        # Read the header information
-        magic_number, num_images, rows, cols = np.frombuffer(f.read(16), dtype=np.uint32).byteswap()
-        # Read the image data
-        images = np.frombuffer(f.read(), dtype=np.uint8)
-        # Reshape to (num_images, rows, cols)
-        images = images.reshape(num_images, rows, cols).astype(np.float32) / 255.0
-        return jnp.array(images)
+        # Read the magic number
+        magic = struct.unpack('>I', f.read(4))[0]
+        # Read the number of items (labels or images)
+        num_items = struct.unpack('>I', f.read(4))[0]
 
+        if magic == 2049:  # Labels file
+            # Read labels (unsigned bytes)
+            data = np.frombuffer(f.read(), dtype=np.uint8)
+        elif magic == 2051:  # Images file
+            # Read dimensions
+            rows = struct.unpack('>I', f.read(4))[0]
+            cols = struct.unpack('>I', f.read(4))[0]
+            # Read image data (unsigned bytes)
+            data = np.frombuffer(f.read(), dtype=np.uint8).reshape(num_items, rows, cols)
+        else:
+            raise ValueError(f"Invalid IDX file: magic number {magic}")
 
-# Process the unzipped MNIST labels
-# Adapted from ChatGPT
-def load_mnist_labels(file_name: str, data_folder: str):
-    filename = os.path.join(data_folder, file_name)
-    with open(filename, 'rb') as f:
-        # Read the label data
-        labels = np.frombuffer(f.read(), dtype=np.uint8)
-        return jnp.array(labels)
+    return data
 
 
 def joint_shuffle(x: jnp.array, y: jnp.array, seed: int=10, axis: int=0):
@@ -86,6 +105,8 @@ class DataLoader:
 
     def cut_and_batch_data(self, data_array, num_batches, num_examples_to_drop):
         # First, discard additional examples for simplicity
+        # Note: for test datasets one should consider keeping the extra examples,
+        # by having a smaller final batch.
         if num_examples_to_drop != 0:
             data_array = data_array[: -num_examples_to_drop]
 

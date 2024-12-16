@@ -3,17 +3,25 @@ This is an implementation of diffusion models in JAX
 """
 
 from models import FFN
-from utils import (load_mnist_images, load_mnist_labels, random_train_dev_split,
-                   DataLoader)
+from utils import (process_mnist, random_train_dev_split,
+                   DataLoader, print_image)
 
 
 def main():
     # Load the dataset
     data_folder = 'data/MNIST'
-    x_train = load_mnist_images(file_name='train-images.idx3-ubyte', data_folder=data_folder)
-    y_train = load_mnist_labels(file_name='train-labels.idx1-ubyte', data_folder=data_folder)
-    x_test = load_mnist_images(file_name='t10k-images.idx3-ubyte', data_folder=data_folder)
-    y_test = load_mnist_labels(file_name='t10k-labels.idx1-ubyte', data_folder=data_folder)
+    x_train = process_mnist(file_name='train-images.idx3-ubyte', data_folder=data_folder)
+    y_train = process_mnist(file_name='train-labels.idx1-ubyte', data_folder=data_folder)
+    x_test = process_mnist(file_name='t10k-images.idx3-ubyte', data_folder=data_folder)
+    y_test = process_mnist(file_name='t10k-labels.idx1-ubyte', data_folder=data_folder)
+
+    # Inspect the data
+    data_id = 45972
+    print('image id:', y_train[data_id])
+    print_image(x_train[data_id])
+    data_id = 2359
+    print('image id:', y_test[data_id])
+    print_image(x_test[data_id])
 
     # Set training parameters
     b_size = 16
