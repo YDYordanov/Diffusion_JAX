@@ -42,6 +42,10 @@ def main():
         x_data=x_train, y_data=y_train, dev_proportion=dev_proportion, seed=random_split_seed
     )
 
+    data_id = 2359
+    print('image id:', y_dev[data_id])
+    print_image(x_dev[data_id])
+
     train_loader = DataLoader(x_data_array=x_train_new, y_data_array=y_train_new, b_size=b_size)
     dev_data_loader = DataLoader(x_data_array=x_dev, y_data_array=y_dev, b_size=b_size)
     print(x_test.shape, y_test.shape)
@@ -61,8 +65,6 @@ def main():
     # Create the optimiser and optimiser state
     optim = optax.adamw(learning_rate=lr)
     opt_state = optim.init(params)
-
-    model = FFN(in_size=in_size, h_size=h_size, out_size=out_size)
 
     for epoch in range(1):
         # Shuffle the data at each epoch;
