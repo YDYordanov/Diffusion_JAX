@@ -13,6 +13,7 @@ import functools
 import typing
 
 
+@jax.jit
 @functools.partial(jax.vmap, in_axes=(None, 0))
 def ffn_jax(params: dict, x: jnp.array):
     assert x.shape[0] * x.shape[1] == params['layer1']['W'].shape[0]
