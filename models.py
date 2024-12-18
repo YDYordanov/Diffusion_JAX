@@ -93,6 +93,7 @@ def run_epoch(
     return params, optim, opt_state
 
 
+@functools.partial(jax.jit, static_argnames=['model_name', 'num_classes'])
 def evaluate_model(
         model_name: str, params: dict, x_test_data: jnp.array, y_test_data: jnp.array,
         num_classes: int):
