@@ -88,12 +88,12 @@ def main():
     end_time = time.time()
     print('Training time:', end_time - start_time)
 
-    # Test-evaluate the final model
+    # Dev-evaluate the final model
     dev_acc, dev_loss = evaluate_model(
         model_fn=ffn_jax,
         params=params,
-        x_test_data=test_data_loader.x_data_array,
-        y_test_data=test_data_loader.y_data_array,
+        x_test_data=dev_data_loader.x_data_array,
+        y_test_data=dev_data_loader.y_data_array,
         num_classes=out_size
     )
     print('Final dev accuracy:', dev_acc)
