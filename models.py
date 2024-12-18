@@ -14,7 +14,7 @@ import typing
 
 
 @jax.jit
-@functools.partial(jax.vmap, in_axes=(None, 0))
+@functools.partial(jax.vmap, in_axes=(None, 0))  # in_axes=(None, 0))
 def ffn_jax(params: dict, x: jnp.array):
     assert x.shape[0] * x.shape[1] == params['layer1']['W'].shape[0]
     x = x.reshape(-1)  # flatten the image dimensions
@@ -27,7 +27,9 @@ def ffn_jax(params: dict, x: jnp.array):
     return out
 
 
-def cross_entropy_loss(out: jnp.array, y: jnp.array, num_classes: int):
+@functools.partial(jax.jit, static_argnames=['num_classes'])  # needs num_classes to be static
+@functools.partial(jax.vmap, in_axes=(0, 0, None))
+def cross_entropy_loss(out: jnp.array, y: jnp.array, num_classes: int=10):
     # First, compute softmax of the outputs to obtain probabilities
     out_probs = nn.softmax(out, axis=-1)
 
@@ -35,26 +37,27 @@ def cross_entropy_loss(out: jnp.array, y: jnp.array, num_classes: int):
     y_vector = nn.one_hot(y, num_classes=num_classes)
 
     # Compute log-likelihood loss w.r.t. y_vector
-    l = - (jnp.log(out_probs) * y_vector).sum(axis=-1).mean()
+    l = - jnp.log(out_probs) * y_vector
+    # Note: we skipped ".sum(axis=-1).mean()" in order to apply jax.vmap vectorisation and batching
 
     return l
 
 
 def compute_ffn_loss(
         params: dict, x: jnp.array, y: jnp.array,
-        model_fn: typing.Callable, num_classes: int):
+        model_fn: typing.Callable, num_classes: int=10):
     # First, forward x through the network
     out = model_fn(params, x)
 
     # Compute the loss of output w.r.t. target y
-    l = cross_entropy_loss(out, y, num_classes)
+    l = cross_entropy_loss(out, y, num_classes).sum(axis=-1).mean()
 
     return l
 
 
 def run_epoch(
         model_fn: typing.Callable, params: dict, optim, opt_state, x_train_data: jnp.array, y_train_data: jnp.array,
-        x_dev_data: jnp.array, y_dev_data: jnp.array, num_classes: int, eval_interval: int=10):
+        x_dev_data: jnp.array, y_dev_data: jnp.array, num_classes: int=10, eval_interval: int=10):
     for batch_id, (x, y) in tqdm(enumerate(zip(x_train_data, y_train_data)), total=x_train_data.shape[0]):
         # Compute the gradients
         grads = grad(compute_ffn_loss)(params, x, y, model_fn, num_classes)
