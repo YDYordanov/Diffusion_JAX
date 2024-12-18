@@ -2,7 +2,7 @@
 This is an implementation of diffusion models in JAX
 """
 
-from models import run_epoch, evaluate_model, ffn_jax
+from models import run_epoch, evaluate_model
 from utils import (process_mnist, random_train_dev_split,
                    DataLoader, print_image)
 from jax import random
@@ -29,11 +29,14 @@ def main():
     #print_image(x_test[data_id])
 
     # Set training parameters
+    model_name = 'ffn'  # choose the model
     b_size = 64
     h_size = 32
     out_size = 10  # num classes
     num_epochs = 1
     lr = 1e-3
+    eval_interval = 10 ** 5
+    assert eval_interval <= 2 ** 32  # jax.jit needs it to be int32
     do_test = False  # test evaluation
     # The input size equals the #pixels in each image
     in_size = x_train.shape[1] * x_train.shape[2]
@@ -75,14 +78,14 @@ def main():
         train_loader.do_shuffle(seed=data_shuffle_seed * (epoch + 1))
         # Run one epoch of training
         params, optim, opt_state = run_epoch(
-            model_fn=ffn_jax, params=params,
+            model_name=model_name, params=params,
             optim=optim, opt_state=opt_state,
             x_train_data=train_loader.x_data_array,
             y_train_data=train_loader.y_data_array,
             x_dev_data=dev_data_loader.x_data_array,
             y_dev_data=dev_data_loader.y_data_array,
             num_classes=out_size,
-            eval_interval=10**10
+            eval_interval=eval_interval
         )
 
     end_time = time.time()
@@ -90,7 +93,7 @@ def main():
 
     # Dev-evaluate the final model
     dev_acc, dev_loss = evaluate_model(
-        model_fn=ffn_jax,
+        model_name=model_name,
         params=params,
         x_test_data=dev_data_loader.x_data_array,
         y_test_data=dev_data_loader.y_data_array,
@@ -102,7 +105,7 @@ def main():
     if do_test:
         # Test-evaluate the final model
         evaluate_model(
-            model_fn=ffn_jax,
+            model_name=model_name,
             params=params,
             x_test_data=test_data_loader.x_data_array,
             y_test_data=test_data_loader.y_data_array,
