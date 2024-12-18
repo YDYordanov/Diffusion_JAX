@@ -69,7 +69,6 @@ def run_epoch(
         if (batch_id + 1) % eval_interval == 0:
             # Dev evaluation
             dev_acc, dev_loss = evaluate_model(model_fn, params, x_dev_data, y_dev_data, num_classes)
-            print(params['layer1']['W'].sum())
             print('Dev accuracy:', dev_acc)
             print('Dev loss:', dev_loss)
 
@@ -93,6 +92,6 @@ def evaluate_model(
         num_correct += (predictions == y).sum()
         num_all += predictions.shape[0]
         num_batches += 1
-        total_loss += cross_entropy_loss(out, y, num_classes)
+        total_loss += cross_entropy_loss(out, y, num_classes).sum(axis=-1).mean()
     print('num correct/num all:', num_correct, num_all)
     return num_correct / num_all, total_loss / num_batches
