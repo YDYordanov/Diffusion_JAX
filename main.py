@@ -9,6 +9,7 @@ from jax import random
 from jax.nn.initializers import glorot_normal
 
 import optax
+import time
 
 
 def main():
@@ -66,6 +67,7 @@ def main():
     optim = optax.adamw(learning_rate=lr)
     opt_state = optim.init(params)
 
+    start_time = time.time()
     for epoch in range(num_epochs):
         # Shuffle the data at each epoch;
         # the first shuffle may be redundant
@@ -80,8 +82,22 @@ def main():
             x_dev_data=dev_data_loader.x_data_array,
             y_dev_data=dev_data_loader.y_data_array,
             num_classes=out_size,
-            eval_interval=100
+            eval_interval=10**10
         )
+
+    end_time = time.time()
+    print('Training time:', end_time - start_time)
+
+    # Test-evaluate the final model
+    dev_acc, dev_loss = evaluate_model(
+        model_fn=ffn_jax,
+        params=params,
+        x_test_data=test_data_loader.x_data_array,
+        y_test_data=test_data_loader.y_data_array,
+        num_classes=out_size
+    )
+    print('Final dev accuracy:', dev_acc)
+    print('Final dev loss:', dev_loss)
 
     if do_test:
         # Test-evaluate the final model
