@@ -31,6 +31,7 @@ def main():
     do_test = False  # test evaluation
 
     # Load the dataset
+    print('Loading and processing data...')
     if dataset == 'mnist':
         x_train, y_train, x_test, y_test = load_mnist_data(
             data_folder='data/MNIST', use_flat_images=use_flat_images)
@@ -73,6 +74,7 @@ def main():
     train_loader = DataLoader(x_data_array=x_train_new, y_data_array=y_train_new, b_size=b_size)
     dev_data_loader = DataLoader(x_data_array=x_dev, y_data_array=y_dev, b_size=b_size)
     test_data_loader = DataLoader(x_data_array=x_test,y_data_array=y_test, b_size=100)
+    print('...the data is ready!')
 
     # Specify the model function
     if model_name == 'ffn':
@@ -97,12 +99,14 @@ def main():
     opt_state = optim.init(params)
 
     # Do training
+    print('Training...')
     start_time = time.time()
     for epoch in range(num_epochs):
         # Shuffle the data at each epoch;
         # the first shuffle may be redundant
         data_shuffle_seed = 2304
         train_loader.do_shuffle(seed=data_shuffle_seed * (epoch + 1))
+
         # Run one epoch of training
         params, optim, opt_state = run_epoch(
             model_fn=model_fn, params=params,
@@ -114,6 +118,17 @@ def main():
             num_classes=out_size,
             eval_interval=eval_interval
         )
+
+        # Dev-evaluate the model
+        dev_acc, dev_loss = evaluate_model(
+            model_fn=model_fn,
+            params=params,
+            x_test_data=dev_data_loader.x_data_array,
+            y_test_data=dev_data_loader.y_data_array,
+            num_classes=out_size
+        )
+        print('Epoch {} dev accuracy: {}'.format(epoch+1, dev_acc))
+        print('Epoch {} dev loss: {}'.format(epoch+1, dev_loss))
 
     end_time = time.time()
     print('Training time:', end_time - start_time)
