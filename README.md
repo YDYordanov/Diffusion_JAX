@@ -12,8 +12,13 @@ Using JAX from: [https://github.com/jax-ml/jax](https://github.com/jax-ml/jax).
 
 ## Setup and Installation
 
-1. Download and unzip the MNIST dataset from https://yann.lecun.com/exdb/mnist/, or from a mirror such as:
+1. Download and extract the data files of the datasets you need:
+
+MNIST can be found at: https://yann.lecun.com/exdb/mnist/, or from a mirror such as:
 https://github.com/mkolod/MNIST.
+
+CIFAR-10 can be found at: https://www.cs.toronto.edu/~kriz/cifar.html.
+
 
 2. Run in terminal:
 

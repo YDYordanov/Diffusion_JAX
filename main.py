@@ -3,7 +3,7 @@ This is an implementation of diffusion models in JAX
 """
 
 from models import run_epoch, evaluate_model, ffn_jax
-from utils import (process_mnist, random_train_dev_split,
+from utils import (load_mnist_data, load_cifar_data, random_train_dev_split,
                    DataLoader, print_image)
 from jax import random
 from jax.nn.initializers import glorot_normal
@@ -13,12 +13,33 @@ import time
 
 
 def main():
+    dataset = 'cifar10'
+    assert dataset in ['mnist', 'cifar10']
+    use_flat_images = True  # to flatten the image dimensions or not
+    if not use_flat_images:
+        raise NotImplementedError
+
+    # The model and training parameters
+    model_name = 'ffn'
+    b_size = 64
+    h_size = 32
+    out_size = 10  # num classes
+    num_epochs = 1
+    lr = 1e-3
+    eval_interval = 10 ** 5
+    assert eval_interval <= 2 ** 32  # jax.jit needs it to be int32
+    do_test = False  # test evaluation
+
     # Load the dataset
-    data_folder = 'data/MNIST'
-    x_train = process_mnist(file_name='train-images.idx3-ubyte', data_folder=data_folder)
-    y_train = process_mnist(file_name='train-labels.idx1-ubyte', data_folder=data_folder)
-    x_test = process_mnist(file_name='t10k-images.idx3-ubyte', data_folder=data_folder)
-    y_test = process_mnist(file_name='t10k-labels.idx1-ubyte', data_folder=data_folder)
+    if dataset == 'mnist':
+        x_train, y_train, x_test, y_test = load_mnist_data(
+            data_folder='data/MNIST', use_flat_images=use_flat_images)
+    elif dataset == 'cifar10':
+        x_train, y_train, x_test, y_test = load_cifar_data(
+            data_folder='data/CIFAR-10', use_flat_images=use_flat_images)
+        print(x_train.shape, y_train.shape, x_test.shape, y_test.shape)
+    else:
+        raise NotImplementedError
 
     # Inspect the data
     #data_id = 45972
@@ -28,19 +49,19 @@ def main():
     #print('image id:', y_test[data_id])
     #print_image(x_test[data_id])
 
-    # Set training parameters
-    b_size = 64
-    h_size = 32
-    out_size = 10  # num classes
-    num_epochs = 1
-    lr = 1e-3
-    eval_interval = 10 ** 5
-    assert eval_interval <= 2 ** 32  # jax.jit needs it to be int32
-    do_test = False  # test evaluation
-    # The input size equals the #pixels in each image
-    in_size = x_train.shape[1] * x_train.shape[2]
-    assert in_size == 784  # for MNIST
-    print('Input size: {} pixels'.format(in_size))
+    # The input size (in_size) of the model equals the #pixels in each image
+    if use_flat_images:
+        in_size = x_train.shape[1]
+        if dataset == 'mnist':
+            assert in_size == 784
+            print('Input size: {} pixels'.format(in_size))
+        elif dataset == 'cifar10':
+            assert in_size == 3072
+            print('Input size: {} pixels with colours'.format(in_size))
+        else:
+            raise NotImplementedError
+    else:
+        raise NotImplementedError
 
     # Do a random train/dev split
     dev_proportion = 0.05
@@ -53,7 +74,13 @@ def main():
     dev_data_loader = DataLoader(x_data_array=x_dev, y_data_array=y_dev, b_size=b_size)
     test_data_loader = DataLoader(x_data_array=x_test,y_data_array=y_test, b_size=100)
 
-    # Initialise the parameters
+    # Specify the model function
+    if model_name == 'ffn':
+        model_fn = ffn_jax
+    else:
+        raise NotImplementedError
+
+    # Specify the parameter initialisation
     # Xavier initialisation
     init_fn = glorot_normal()
     params = {
@@ -69,6 +96,7 @@ def main():
     optim = optax.adamw(learning_rate=lr)
     opt_state = optim.init(params)
 
+    # Do training
     start_time = time.time()
     for epoch in range(num_epochs):
         # Shuffle the data at each epoch;
@@ -77,7 +105,7 @@ def main():
         train_loader.do_shuffle(seed=data_shuffle_seed * (epoch + 1))
         # Run one epoch of training
         params, optim, opt_state = run_epoch(
-            model_fn=ffn_jax, params=params,
+            model_fn=model_fn, params=params,
             optim=optim, opt_state=opt_state,
             x_train_data=train_loader.x_data_array,
             y_train_data=train_loader.y_data_array,
@@ -92,7 +120,7 @@ def main():
 
     # Dev-evaluate the final model
     dev_acc, dev_loss = evaluate_model(
-        model_fn=ffn_jax,
+        model_fn=model_fn,
         params=params,
         x_test_data=dev_data_loader.x_data_array,
         y_test_data=dev_data_loader.y_data_array,
@@ -104,7 +132,7 @@ def main():
     if do_test:
         # Test-evaluate the final model
         evaluate_model(
-            model_fn=ffn_jax,
+            model_fn=model_fn,
             params=params,
             x_test_data=test_data_loader.x_data_array,
             y_test_data=test_data_loader.y_data_array,

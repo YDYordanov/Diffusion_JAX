@@ -16,8 +16,7 @@ import typing
 @jax.jit
 @functools.partial(jax.vmap, in_axes=(None, 0))  # in_axes=(None, 0))
 def ffn_jax(params: dict, x: jnp.array):
-    assert x.shape[0] * x.shape[1] == params['layer1']['W'].shape[0]
-    x = x.reshape(-1)  # flatten the image dimensions
+    assert x.shape[0] == params['layer1']['W'].shape[0]
 
     # Forward pass through the network
     hid_state = jnp.matmul(x, params['layer1']['W']) + params['layer1']['b']
