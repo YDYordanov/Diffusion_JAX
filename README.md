@@ -2,7 +2,7 @@
 
 This is a coding exercise in implementing image models and diffusion in JAX.
 
-**Note:** This is an amateur in development; for educational purposes only.
+**Note:** This is an amateur work in development; for educational purposes only.
 
 **Note:** high GPU memory consumption may be due to JAX's default memory allocation behaviour. For more details, see: https://jax.readthedocs.io/en/latest/gpu_memory_allocation.html.
 
