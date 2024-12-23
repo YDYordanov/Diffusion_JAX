@@ -4,8 +4,7 @@ This is an implementation of diffusion models in JAX
 
 from models import run_epoch, evaluate_model, ffn_jax
 from utils import (load_mnist_data, load_cifar_data, random_train_dev_split,
-                   DataLoader, print_image, print_colour_image, unflatten_mnist_image,
-                   unflatten_cifar_images)
+                   DataLoader, inspect_data)
 from jax import random
 from jax.nn.initializers import glorot_normal
 from random import sample
@@ -15,8 +14,8 @@ import time
 
 
 def main():
-    dataset = 'cifar10'
-    assert dataset in ['mnist', 'cifar10']
+    dataset_name = 'cifar10'
+    assert dataset_name in ['mnist', 'cifar10']
     use_flat_images = True  # to flatten the image dimensions or not
     if not use_flat_images:
         raise NotImplementedError
@@ -35,10 +34,10 @@ def main():
 
     # Load the dataset
     print('Loading and processing data...')
-    if dataset == 'mnist':
+    if dataset_name == 'mnist':
         x_train, y_train, x_test, y_test = load_mnist_data(
             data_folder='data/MNIST', use_flat_images=use_flat_images)
-    elif dataset == 'cifar10':
+    elif dataset_name == 'cifar10':
         x_train, y_train, x_test, y_test = load_cifar_data(
             data_folder='data/CIFAR-10', use_flat_images=use_flat_images)
         print(x_train.shape, y_train.shape, x_test.shape, y_test.shape)
@@ -47,33 +46,17 @@ def main():
 
     # Inspect the training data
     if do_inspect:
-        # pick a few random images
-        data_ids = sample(range(len(x_train)), 3)
-
-        # Print each image
-        for data_id in data_ids:
-            if dataset == 'cifar10':
-                classes = [
-                    'airplane', 'automobile', 'bird', 'cat', 'deer',
-                    'dog', 'frog', 'horse', 'ship', 'truck']
-                print('image label:', classes[y_train[data_id]])
-                sample_image = unflatten_cifar_images(x_train[data_id: data_id+1])[0]
-                print_colour_image(sample_image)
-
-            elif dataset == 'mnist':
-                print('image digit:', y_train[data_id])
-                image_array = x_train[data_id]
-                # Expand the image
-                image_array = unflatten_mnist_image(image_array)
-                print_image(image_array)
+        inspect_data(
+            dataset_name=dataset_name, x_data=x_train, y_data=y_train, sample_size=3)
+        exit()
 
     # The input size (in_size) of the model equals the #pixels in each image
     if use_flat_images:
         in_size = x_train.shape[1]
-        if dataset == 'mnist':
+        if dataset_name == 'mnist':
             assert in_size == 784
             print('Input size: {} pixels'.format(in_size))
-        elif dataset == 'cifar10':
+        elif dataset_name == 'cifar10':
             assert in_size == 3072
             print('Input size: {} pixels with colours'.format(in_size))
         else:

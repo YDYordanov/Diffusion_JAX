@@ -4,6 +4,7 @@ Data and other utilities
 import os
 import struct
 import pickle
+import random
 
 import jax.random as jrand
 import jax.numpy as jnp
@@ -172,6 +173,38 @@ def load_cifar_data(data_folder: str, use_flat_images: bool=False):
     test_images = test_images.astype('float32') / 255.0
 
     return train_images, train_labels, test_images, test_labels
+
+
+def inspect_data(
+        dataset_name: str, x_data: np.array, y_data: np.array,
+        sample_size: int=3):
+    """
+    Print a few random images from the dataset
+
+    :param dataset_name: cifar10/mnist
+    :param x_data: image array
+    :param y_data: label array
+    :param sample_size: number of images to print
+    """
+    # pick a few random images
+    data_ids = random.sample(range(len(x_data)), sample_size)
+
+    # Print each image
+    for data_id in data_ids:
+        if dataset_name == 'cifar10':
+            classes = [
+                'airplane', 'automobile', 'bird', 'cat', 'deer',
+                'dog', 'frog', 'horse', 'ship', 'truck']
+            print('image label:', classes[y_data[data_id]])
+            sample_image = unflatten_cifar_images(x_data[data_id: data_id + 1])[0]
+            print_colour_image(sample_image)
+
+        elif dataset_name == 'mnist':
+            print('image digit:', y_data[data_id])
+            image_array = x_data[data_id]
+            # Expand the image
+            image_array = unflatten_mnist_image(image_array)
+            print_image(image_array)
 
 
 def joint_shuffle(x: jnp.array, y: jnp.array, seed: int=10, axis: int=0):
