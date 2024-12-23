@@ -4,9 +4,11 @@ This is an implementation of diffusion models in JAX
 
 from models import run_epoch, evaluate_model, ffn_jax
 from utils import (load_mnist_data, load_cifar_data, random_train_dev_split,
-                   DataLoader, print_image)
+                   DataLoader, print_image, print_colour_image, unflatten_mnist_image,
+                   unflatten_cifar_images)
 from jax import random
 from jax.nn.initializers import glorot_normal
+from random import sample
 
 import optax
 import time
@@ -18,6 +20,7 @@ def main():
     use_flat_images = True  # to flatten the image dimensions or not
     if not use_flat_images:
         raise NotImplementedError
+    do_inspect = False  # inspect the data
 
     # The model and training parameters
     model_name = 'ffn'
@@ -42,13 +45,27 @@ def main():
     else:
         raise NotImplementedError
 
-    # Inspect the data
-    #data_id = 45972
-    #print('image id:', y_train[data_id])
-    #print_image(x_train[data_id])
-    #data_id = 2359
-    #print('image id:', y_test[data_id])
-    #print_image(x_test[data_id])
+    # Inspect the training data
+    if do_inspect:
+        # pick a few random images
+        data_ids = sample(range(len(x_train)), 3)
+
+        # Print each image
+        for data_id in data_ids:
+            if dataset == 'cifar10':
+                classes = [
+                    'airplane', 'automobile', 'bird', 'cat', 'deer',
+                    'dog', 'frog', 'horse', 'ship', 'truck']
+                print('image label:', classes[y_train[data_id]])
+                sample_image = unflatten_cifar_images(x_train[data_id: data_id+1])[0]
+                print_colour_image(sample_image)
+
+            elif dataset == 'mnist':
+                print('image digit:', y_train[data_id])
+                image_array = x_train[data_id]
+                # Expand the image
+                image_array = unflatten_mnist_image(image_array)
+                print_image(image_array)
 
     # The input size (in_size) of the model equals the #pixels in each image
     if use_flat_images:
