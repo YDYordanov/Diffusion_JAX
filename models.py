@@ -77,7 +77,7 @@ def run_epoch(
         # This is done in a separate function to enable jax.jit optimisation with compiling
         params, opt_state = grad_and_update(
             model_fn=model_fn, params=params, optim=optim, opt_state=opt_state,
-            x=x, y=y, num_classes=num_classes)
+            x=jnp.array(x), y=jnp.array(y), num_classes=num_classes)
 
         if (batch_id + 1) % eval_interval == 0:
             # Dev evaluation
@@ -101,6 +101,7 @@ def evaluate_model(
     num_batches = 0
     total_loss = 0
     for x, y in zip(x_test_data, y_test_data):
+        x, y = jnp.array(x), jnp.array(y)
         out = model_fn(params, x)
         # Model predictions
         predictions = out.argmax(axis=-1)
