@@ -2,13 +2,14 @@
 Data and other utilities
 """
 import os
+import struct
+import pickle
+
 import jax.random as jrand
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 
-import struct
-import pickle
 
 
 def print_image(image_array):
@@ -148,7 +149,7 @@ def joint_shuffle(x: jnp.array, y: jnp.array, seed: int=10, axis: int=0):
     jointly shuffle two JAX arrays across an axis
     """
     key = jrand.PRNGKey(seed)
-    id_permutation = jrand.permutation(key, jnp.arange(x.shape[0]), axis=axis)
+    id_permutation = jrand.permutation(key, x.shape[axis], axis=axis)
     x_shuffled = x[id_permutation]
     y_shuffled = y[id_permutation]
     return x_shuffled, y_shuffled
