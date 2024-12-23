@@ -12,7 +12,7 @@ import numpy as np
 
 
 
-def print_image(image_array):
+def print_image(image_array: np.array):
     """
     Display an image from a 2-D array
     """
@@ -20,6 +20,19 @@ def print_image(image_array):
 
     # From ChatGPT
     plt.imshow(np.array(image_array), cmap='gray')
+    plt.axis('off')  # Turn off axes for a cleaner look
+    plt.show()
+
+
+def print_colour_image(image_array: np.array):
+    """
+    Display an image from a 3-D array:
+    "(M, N, 3): an image with RGB values (0-1 float or 0-255 int)." (imshow docs)
+    """
+    assert len(image_array.shape) == 3 and image_array.shape[2] == 3
+
+    # Plot the image
+    plt.imshow(np.array(image_array), cmap='viridis')
     plt.axis('off')  # Turn off axes for a cleaner look
     plt.show()
 
@@ -72,6 +85,23 @@ def load_mnist_data(data_folder: str, use_flat_images: bool=False):
         file_name='t10k-labels.idx1-ubyte', data_folder=data_folder, flatten_images=use_flat_images)
 
     return x_train, y_train, x_test, y_test
+
+
+def unflatten_mnist_image(flat_image_array: np.array):
+    """
+    Unflatten one MNIST images: 2D images
+
+    Args:
+        flat_image_array (np.array): Flat image data of shape (784).
+
+    Returns:
+        np.array: Restored image array of shape (28, 28).
+    """
+
+    # Reshape to (num_images, 3, 32, 32)
+    reshaped_image_array = flat_image_array.reshape(28, 28)
+
+    return reshaped_image_array
 
 
 def unpickle(file):
