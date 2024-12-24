@@ -37,5 +37,5 @@ For other hardware see the [JAX documentation](https://github.com/jax-ml/jax).
 ## Example Usage
 
 ```
-python main.py -data=cifar10 -lr=1e-4 --num_epochs=10
+python main.py -data=cifar10 -model=ffn -lr=1e-4 --num_epochs=10
 ```
