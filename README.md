@@ -33,3 +33,9 @@ pip3 install -U "jax[cuda12]"
 ```
 
 For other hardware see the [JAX documentation](https://github.com/jax-ml/jax).
+
+## Example Usage
+
+```
+python main.py -data=cifar10 -lr=1e-4 --num_epochs=10
+```
