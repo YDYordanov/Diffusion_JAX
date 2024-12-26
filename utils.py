@@ -19,8 +19,10 @@ def print_image(image_array: np.array):
     """
     assert len(image_array.shape) == 2
 
-    # From ChatGPT
-    plt.imshow(np.array(image_array), cmap='gray')
+    # Adapted from ChatGPT
+    # Rescale pixel values from [-1, 1] to [0, 1]:
+    rescaled_image = (np.array(image_array) + 1) / 2
+    plt.imshow(rescaled_image, cmap='gray')
     plt.axis('off')  # Turn off axes for a cleaner look
     plt.show()
 
@@ -33,7 +35,9 @@ def print_colour_image(image_array: np.array):
     assert len(image_array.shape) == 3 and image_array.shape[2] == 3
 
     # Plot the image
-    plt.imshow(np.array(image_array), cmap='viridis')
+    # Rescale pixel values from [-1, 1] to [0, 1]:
+    rescaled_image = (np.array(image_array) + 1) / 2
+    plt.imshow(rescaled_image)
     plt.axis('off')  # Turn off axes for a cleaner look
     plt.show()
 
@@ -64,7 +68,7 @@ def process_mnist(file_name: str, data_folder: str, flatten_images: bool=False):
             cols = struct.unpack('>I', f.read(4))[0]
             # Read image data (unsigned bytes)
             data = np.frombuffer(f.read(), dtype=np.uint8).reshape(num_items, rows, cols)
-            data = data / 255.0  # normalise to [0, 1]
+            data = (data / 255.0) * 2 - 1  # scaled to [0, 1], then to [-1, 1], for diffusion
             # Flatten the image dimensions
             if flatten_images:
                 data = data.reshape(num_items, -1)
@@ -168,9 +172,9 @@ def load_cifar_data(data_folder: str, use_flat_images: bool=False):
         train_images = unflatten_cifar_images(train_images)
         test_images = unflatten_cifar_images(test_images)
 
-    # Convert to float32 to save memory, then normalise:
-    train_images = train_images.astype('float32') / 255.0
-    test_images = test_images.astype('float32') / 255.0
+    # Convert to float32 to save memory, then normalise to [-1, 1] for diffusion
+    train_images = (train_images.astype('float32') / 255.0) * 2 - 1
+    test_images = (test_images.astype('float32') / 255.0) * 2 - 1
 
     return train_images, train_labels, test_images, test_labels
 
@@ -242,6 +246,7 @@ class DataLoader:
         assert x_data_array.shape[0] == y_data_array.shape[0]
         self.unbatched_x_data_array = x_data_array
         self.unbatched_y_data_array = y_data_array
+        #array1 = jax.device_put(x_data_array, device=jax.devices("cpu")[0])
 
         self.num_examples = self.unbatched_x_data_array.shape[0]
         self.num_batches = self.num_examples // self.b_size
