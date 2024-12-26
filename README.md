@@ -2,12 +2,15 @@
 
 This is a coding exercise in implementing image models and diffusion in JAX.
 
-**Note:** This is an amateur work in development; for educational purposes only.
-
-**Note:** high GPU memory consumption may be due to JAX's default memory allocation behaviour. For more details, see: https://jax.readthedocs.io/en/latest/gpu_memory_allocation.html.
+**Note:** This is an amateur work in development; for educational purposes only. Any code originating from an external 
+source (e.g. ChatGPT) except for official documentation is clearly labelled as such.
 
 Using JAX from: [https://github.com/jax-ml/jax](https://github.com/jax-ml/jax).
 
+The diffusion model being implemented here is based on the DDPM model by: https://arxiv.org/abs/2006.11239.
+
+**Note:** High GPU memory consumption is normal because JAX reserves a large percentage of the GPU memory 
+at the first use of JAX. For more details, see: https://jax.readthedocs.io/en/latest/gpu_memory_allocation.html.
 
 ## Setup and Installation
 

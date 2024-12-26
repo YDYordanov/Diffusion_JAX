@@ -6,6 +6,7 @@ import time
 import optax
 
 from models import run_epoch, evaluate_model, ffn_jax
+from ddpm_models import run_ddpm_epoch, evaluate_ddpm_model, ddpm_jax
 from utils import (load_mnist_data, load_cifar_data, random_train_dev_split,
                    DataLoader, inspect_data)
 from jax import random
@@ -28,7 +29,7 @@ def main():
 
     # The model and training parameters
     parser.add_argument(
-        '-model', '--model_name', choices=['ffn'], default='ffn')
+        '-model', '--model_name', choices=['ffn', 'ddpm'], default='ffn')
     parser.add_argument(
         '-bs', '--b_size', type=int, default=64, help='Training batch size.')
     parser.add_argument(
@@ -102,6 +103,8 @@ def main():
     # Specify the model function
     if args.model_name == 'ffn':
         model_fn = ffn_jax
+    elif args.model_name == 'ddpm':
+        model_fn = ddpm_jax
     else:
         raise NotImplementedError
 
@@ -131,16 +134,30 @@ def main():
         train_loader.do_shuffle(seed=data_shuffle_seed * (epoch + 1))
 
         # Run one epoch of training
-        params, optim, opt_state = run_epoch(
-            model_fn=model_fn, params=params,
-            optim=optim, opt_state=opt_state,
-            x_train_data=train_loader.x_data_array,
-            y_train_data=train_loader.y_data_array,
-            x_dev_data=dev_data_loader.x_data_array,
-            y_dev_data=dev_data_loader.y_data_array,
-            num_classes=args.out_size,
-            eval_interval=args.eval_interval
-        )
+        if args.model_name == 'ffn':
+            # Train the FFN model for one epoch
+            params, optim, opt_state = run_epoch(
+                model_fn=model_fn, params=params,
+                optim=optim, opt_state=opt_state,
+                x_train_data=train_loader.x_data_array,
+                y_train_data=train_loader.y_data_array,
+                x_dev_data=dev_data_loader.x_data_array,
+                y_dev_data=dev_data_loader.y_data_array,
+                num_classes=args.out_size,
+                eval_interval=args.eval_interval
+            )
+        elif args.model_name == 'ddpm':
+            # Train the DDPM model for one epoch
+            epoch_seed = 250948 * (epoch + 1)
+            T = 10
+            params, optim, opt_state = run_ddpm_epoch(
+                model_fn=model_fn, params=params,
+                T=T, optim=optim, opt_state=opt_state,
+                x_train_data=train_loader.x_data_array,
+                x_dev_data=dev_data_loader.x_data_array,
+                eval_interval=args.eval_interval,
+                seed=epoch_seed
+            )
 
         # Dev-evaluate the model
         dev_acc, dev_loss = evaluate_model(

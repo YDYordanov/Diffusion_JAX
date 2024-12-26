@@ -1,5 +1,5 @@
 """
-This is an implementation of diffusion models in JAX
+This is an implementation of image models in JAX
 """
 
 import jax.numpy as jnp
