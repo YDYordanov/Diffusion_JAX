@@ -242,7 +242,6 @@ class DataLoader:
     """
     def __init__(self, x_data_array: jnp.array, y_data_array: jnp.array, b_size: int):
         self.b_size = b_size
-        print(x_data_array.shape, y_data_array.shape)
         assert x_data_array.shape[0] == y_data_array.shape[0]
         self.unbatched_x_data_array = x_data_array
         self.unbatched_y_data_array = y_data_array
@@ -262,7 +261,7 @@ class DataLoader:
         # Convert to JAX array, sending it to the designated device
         #self.data_array = jnp.array(self.data_array)
 
-        print('Data array shapes:', self.x_data_array.shape, self.y_data_array.shape)
+        print('Batched data array shapes:', self.x_data_array.shape, self.y_data_array.shape)
 
 
     def cut_and_batch_data(self, data_array, num_batches, num_examples_to_drop):

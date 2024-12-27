@@ -64,7 +64,6 @@ def main():
     elif args.dataset_name == 'cifar10':
         x_train, y_train, x_test, y_test = load_cifar_data(
             data_folder='data/CIFAR-10', use_flat_images=not args.unflatten_images)
-        print(x_train.shape, y_train.shape, x_test.shape, y_test.shape)
     else:
         raise NotImplementedError
 
