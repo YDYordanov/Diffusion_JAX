@@ -5,12 +5,11 @@ import argparse
 import time
 import optax
 
-from models import run_epoch, evaluate_model, ffn_jax
-from ddpm_models import run_ddpm_epoch, evaluate_ddpm_model, ddpm_jax
+from models import run_epoch, evaluate_model, ffn_jax, ffn_init
+from ddpm_models import run_ddpm_epoch, evaluate_ddpm_model, ddpm_ffn_model_fn, get_a_t_hat
 from utils import (load_mnist_data, load_cifar_data, random_train_dev_split,
                    DataLoader, inspect_data)
 from jax import random
-from jax.nn.initializers import glorot_normal
 
 
 def main():
@@ -35,12 +34,14 @@ def main():
     parser.add_argument(
         '-hs', '--h_size', type=int, default=32, help='Model hidden size.')
     parser.add_argument(
-        '-out_size', '--out_size', type=int, default=10,
-        help='Number of classes = output size.')
+        '-n_classes', '--num_classes', type=int, default=10,
+        help='Number of classes for classification.')
     parser.add_argument(
         '-ep', '--num_epochs', type=int, default=1, help='Training epochs.')
     parser.add_argument(
         '-lr', '--lr', type=float, default=1e-3, help='Optimiser learning rate.')
+    parser.add_argument(
+        '-T', '--T', type=int, default=10, help='Number of diffusion steps.')
     parser.add_argument(
         '-eval_int', '--eval_interval', type=int, default=10**5,
         help='Run dev evaluation every this many training steps.')
@@ -99,25 +100,20 @@ def main():
     test_data_loader = DataLoader(x_data_array=x_test,y_data_array=y_test, b_size=100)
     print('...the data is ready!')
 
-    # Specify the model function
+    # Specify the model function, and initialise the parameters
     if args.model_name == 'ffn':
         model_fn = ffn_jax
+        params = ffn_init(in_size=in_size, h_size=args.h_size, out_size=args.num_classes)
     elif args.model_name == 'ddpm':
-        model_fn = ddpm_jax
+        model_fn = ddpm_ffn_model_fn
+        # Same init as FFN, but larger in_size as x_noisy and t are concatenated as input;
+        # the output is of the same dimensions as x.
+        params = ffn_init(in_size=in_size+1, h_size=args.h_size, out_size=in_size)
+        # These are constants used for DDPM
+        a_t_hat_values, a_t_values = get_a_t_hat(b_1=1e-4, b_last=2e-2, T=args.T)
     else:
         raise NotImplementedError
 
-    # Specify the parameter initialisation
-    # Xavier initialisation
-    init_fn = glorot_normal()
-    params = {
-        'layer1': {
-            'W': init_fn(random.PRNGKey(12), (in_size, args.h_size)),
-            'b': random.normal(random.PRNGKey(1322), (args.h_size))},
-        'projection': {
-            'W': init_fn(random.PRNGKey(23), (args.h_size, args.out_size)),
-            'b': random.normal(random.PRNGKey(125), (args.out_size))}
-    }
 
     # Create the optimiser and optimiser state
     optim = optax.adamw(learning_rate=args.lr)
@@ -142,16 +138,16 @@ def main():
                 y_train_data=train_loader.y_data_array,
                 x_dev_data=dev_data_loader.x_data_array,
                 y_dev_data=dev_data_loader.y_data_array,
-                num_classes=args.out_size,
+                num_classes=args.num_classes,
                 eval_interval=args.eval_interval
             )
         elif args.model_name == 'ddpm':
             # Train the DDPM model for one epoch
             epoch_seed = 250948 * (epoch + 1)
-            T = 10
             params, optim, opt_state = run_ddpm_epoch(
                 model_fn=model_fn, params=params,
-                T=T, optim=optim, opt_state=opt_state,
+                T=args.T, a_t_hat_values=a_t_hat_values,
+                optim=optim, opt_state=opt_state,
                 x_train_data=train_loader.x_data_array,
                 x_dev_data=dev_data_loader.x_data_array,
                 eval_interval=args.eval_interval,
@@ -164,7 +160,7 @@ def main():
             params=params,
             x_test_data=dev_data_loader.x_data_array,
             y_test_data=dev_data_loader.y_data_array,
-            num_classes=args.out_size
+            num_classes=args.num_classes
         )
         print('Epoch {} dev accuracy: {}'.format(epoch+1, dev_acc))
         print('Epoch {} dev loss: {}'.format(epoch+1, dev_loss))
@@ -178,7 +174,7 @@ def main():
         params=params,
         x_test_data=dev_data_loader.x_data_array,
         y_test_data=dev_data_loader.y_data_array,
-        num_classes=args.out_size
+        num_classes=args.num_classes
     )
     print('Final dev accuracy:', dev_acc)
     print('Final dev loss:', dev_loss)
@@ -190,7 +186,7 @@ def main():
             params=params,
             x_test_data=test_data_loader.x_data_array,
             y_test_data=test_data_loader.y_data_array,
-            num_classes=args.out_size
+            num_classes=args.num_classes
         )
 
 if __name__ == "__main__":

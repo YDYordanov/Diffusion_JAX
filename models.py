@@ -2,19 +2,38 @@
 This is an implementation of image models in JAX
 """
 
-import jax.numpy as jnp
-import jax.nn as nn  # activation fn-s
-from jax import grad
-from tqdm import tqdm
-
 import jax
 import optax
 import functools
 import typing
 
+import jax.numpy as jnp
+import jax.random as jrand
+import jax.nn as nn  # activation fn-s
+
+from jax import grad
+from jax.nn.initializers import glorot_normal
+from tqdm import tqdm
+
+
+def ffn_init(in_size: int, h_size: int, out_size: int=10):
+    """
+    Get random (Xavier) initialisations of the FFN parameters
+    :return: the parameters
+    """
+    init_fn = glorot_normal()  # Xavier init
+    params = {
+        'layer1': {
+            'W': init_fn(jrand.PRNGKey(12), (in_size, h_size)),
+            'b': jrand.normal(jrand.PRNGKey(1322), (h_size))},
+        'projection': {
+            'W': init_fn(jrand.PRNGKey(23), (h_size, out_size)),
+            'b': jrand.normal(jrand.PRNGKey(125), (out_size))}
+    }
+    return params
 
 @jax.jit
-@functools.partial(jax.vmap, in_axes=(None, 0))  # in_axes=(None, 0))
+@functools.partial(jax.vmap, in_axes=(None, 0))
 def ffn_jax(params: dict, x: jnp.array):
     assert x.shape[0] == params['layer1']['W'].shape[0]
 
