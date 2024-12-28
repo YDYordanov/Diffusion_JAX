@@ -211,6 +211,22 @@ def inspect_data(
             print_image(image_array)
 
 
+def inspect_image(dataset_name: str, image_array):
+    """
+    Print an image (usually reconstructed image) for a dataset
+    :param dataset_name: cifar10/mnist
+    :param image_array: image array
+    """
+    # Print the image
+    if dataset_name == 'cifar10':
+        sample_image = unflatten_cifar_images(image_array)[0]
+        print_colour_image(sample_image)
+    elif dataset_name == 'mnist':
+        # Expand the image
+        image_array = unflatten_mnist_image(image_array)
+        print_image(image_array)
+
+
 def joint_shuffle(x: jnp.array, y: jnp.array, seed: int=10, axis: int=0):
     """
     jointly shuffle two JAX arrays across an axis

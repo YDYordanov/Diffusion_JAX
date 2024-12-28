@@ -6,10 +6,9 @@ import time
 import optax
 
 from models import run_epoch, evaluate_model, ffn_jax, ffn_init
-from ddpm_models import run_ddpm_epoch, evaluate_ddpm_model, ddpm_ffn_model_fn, get_a_t_hat
+from ddpm_models import run_ddpm_epoch, sample_ddpm_image, ddpm_ffn_model_fn, get_a_t_hat
 from utils import (load_mnist_data, load_cifar_data, random_train_dev_split,
-                   DataLoader, inspect_data)
-from jax import random
+                   DataLoader, inspect_data, inspect_image)
 
 
 def main():
@@ -155,6 +154,30 @@ def main():
             )
 
         # Dev-evaluate the model
+        if args.model_name == 'ffn':
+            dev_acc, dev_loss = evaluate_model(
+                model_fn=model_fn,
+                params=params,
+                x_test_data=dev_data_loader.x_data_array,
+                y_test_data=dev_data_loader.y_data_array,
+                num_classes=args.num_classes
+            )
+            print('Epoch {} dev accuracy: {}'.format(epoch+1, dev_acc))
+            print('Epoch {} dev loss: {}'.format(epoch+1, dev_loss))
+
+        elif args.model_name == 'ddpm':
+            # Reconstruct a random image from noise and view it
+            reconstructed_image_array = sample_ddpm_image(
+                params=params, model_fn=model_fn, T=args.T, image_array_shape=(1, in_size),
+                a_t_values=a_t_values, a_t_hat_values=a_t_hat_values,
+                seed=epoch_seed+10)
+            inspect_image(dataset_name=args.dataset_name, image_array=reconstructed_image_array)
+
+    end_time = time.time()
+    print('Training time:', end_time - start_time)
+
+    # Dev-evaluate the final model
+    if args.model_name == 'ffn':
         dev_acc, dev_loss = evaluate_model(
             model_fn=model_fn,
             params=params,
@@ -162,32 +185,19 @@ def main():
             y_test_data=dev_data_loader.y_data_array,
             num_classes=args.num_classes
         )
-        print('Epoch {} dev accuracy: {}'.format(epoch+1, dev_acc))
-        print('Epoch {} dev loss: {}'.format(epoch+1, dev_loss))
-
-    end_time = time.time()
-    print('Training time:', end_time - start_time)
-
-    # Dev-evaluate the final model
-    dev_acc, dev_loss = evaluate_model(
-        model_fn=model_fn,
-        params=params,
-        x_test_data=dev_data_loader.x_data_array,
-        y_test_data=dev_data_loader.y_data_array,
-        num_classes=args.num_classes
-    )
-    print('Final dev accuracy:', dev_acc)
-    print('Final dev loss:', dev_loss)
+        print('Final dev accuracy:', dev_acc)
+        print('Final dev loss:', dev_loss)
 
     if args.do_test:
-        # Test-evaluate the final model
-        evaluate_model(
-            model_fn=model_fn,
-            params=params,
-            x_test_data=test_data_loader.x_data_array,
-            y_test_data=test_data_loader.y_data_array,
-            num_classes=args.num_classes
-        )
+        if args.model_name == 'ffn':
+            # Test-evaluate the final model
+            evaluate_model(
+                model_fn=model_fn,
+                params=params,
+                x_test_data=test_data_loader.x_data_array,
+                y_test_data=test_data_loader.y_data_array,
+                num_classes=args.num_classes
+            )
 
 if __name__ == "__main__":
     main()

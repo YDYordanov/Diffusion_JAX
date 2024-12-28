@@ -41,9 +41,9 @@ def ddpm_ffn_model_fn(params: dict, x_noisy: jnp.array, t: jnp.array):
     The epsilon_theta transformation of the noisy image and t,
     but simplified: using FFN instead of U-net transformer
     """
-    assert x_noisy.shape[0] + 1 == params['layer1']['W'].shape[0]
+    # assert x_noisy.shape[0] + 1 == params['layer1']['W'].shape[0]
     input_array = jnp.concatenate(
-        arrays=(x_noisy, jnp.expand_dims(t, axis=0)), axis=0)
+        arrays=(x_noisy, jnp.expand_dims(t, axis=-1)), axis=-1)
 
     # Forward pass through the network
     hid_state = jnp.matmul(input_array, params['layer1']['W']) + params['layer1']['b']
@@ -53,18 +53,54 @@ def ddpm_ffn_model_fn(params: dict, x_noisy: jnp.array, t: jnp.array):
     return out
 
 
+@functools.partial(jax.jit, static_argnames=['model_fn', 'image_array_shape', 'T'])
+def sample_ddpm_image(
+        params: dict, model_fn: typing.Callable, image_array_shape: tuple, T: int,
+        a_t_values: jnp.array, a_t_hat_values: jnp.array, seed: int):
+    """
+    Implementing sampling in DDPM for image reconstruction from noise,
+    as described in Algorithm 2 (https://arxiv.org/abs/2006.11239)
+    :returns x_0, the reconstructed image
+    """
+    # First, sample x_T ~ N(0, I), in the image_array_shape
+    x_t = jrand.normal(key=jrand.key(seed=seed + 22435), shape=image_array_shape)
+
+    # Compute x_(T-1),...,x_0 iteratively:
+    for t in range(T, 0, -1):
+        if t > 0:
+            z = jrand.normal(key=jrand.key(seed=seed + 23509), shape=image_array_shape)
+        else:
+            z = jnp.zeros(shape=image_array_shape)
+
+        # Intermediate variables, for cleanliness
+        a_t_coefficient = (1 - a_t_values[t-1]) / jnp.sqrt(1 - a_t_hat_values[t-1])
+        eps_theta = model_fn(params, x_t, jnp.array([t]))
+        x_t_minus_eps_t = x_t - a_t_coefficient * eps_theta
+
+        # (Sigma_t)^2 can be either b_t or (1-a_(t-1)^hat)/(1-a_t^hat)*b_t
+        # (https://arxiv.org/abs/2006.11239)
+        # Note: beta_t = 1 - alpha_t
+        sigma_t = jnp.sqrt(1 - a_t_values[t])
+
+        # compute x_(t-1) by overwriting x_t
+        x_t = (1 / jnp.sqrt(a_t_values[t-1])) * x_t_minus_eps_t + sigma_t * z
+
+    # return what is essentially x_0, the reconstructed image
+    return x_t
+
+
 @functools.partial(jax.jit, static_argnames=['model_fn'])
 def compute_ddpm_loss(
         params: dict, x: jnp.array, eps: jnp.array,
         t: jnp.array, a_t_hat_values: jnp.array, model_fn: typing.Callable):
     """
     Implementing the objective function of DDPM,
-    provided in Algorithm 1 (https://arxiv.org/abs/2006.11239)
+    as described in Algorithm 1 (https://arxiv.org/abs/2006.11239)
     """
     # First, forward x through the network
     # This corresponds to finding epsilon_theta in Algorthm 1
     a_t_hat = jnp.expand_dims(a_t_hat_values[t], axis=1)
-    x_noisy = jnp.sqrt(a_t_hat * x) + jnp.sqrt(1 - a_t_hat) * eps
+    x_noisy = jnp.sqrt(a_t_hat) * x + jnp.sqrt(1 - a_t_hat) * eps
     eps_theta = model_fn(params, x_noisy, t)
 
     # Compute the MSE loss
@@ -120,34 +156,7 @@ def run_ddpm_epoch(
 
         if (batch_id + 1) % eval_interval == 0:
             # Dev evaluation
-            # ToDo: change this
-            dev_acc, dev_loss = evaluate_ddpm_model(model_fn, params, x_dev_data)
-            print('Dev accuracy:', dev_acc)
-            print('Dev loss:', dev_loss)
+            # ToDo: implement this
+            pass
 
     return params, optim, opt_state
-
-
-@functools.partial(jax.jit, static_argnames=['model_fn'])
-def evaluate_ddpm_model(
-        model_fn: typing.Callable, params: dict, x_test_data: jnp.array):
-    """
-    Return the accuracy w.r.t. y_test_data
-    """
-    # ToDo: implement this
-
-    num_correct = 0
-    num_all = 0
-    num_batches = 0
-    total_loss = 0
-    for x in x_test_data:
-        x = jnp.array(x)
-        out = model_fn(params, x)
-        # Model predictions
-        predictions = out.argmax(axis=-1)
-        num_correct += (predictions == y).sum()
-        num_all += predictions.shape[0]
-        num_batches += 1
-        # total_loss += cross_entropy_loss(out, y, num_classes).sum(axis=-1).mean()
-    # print('num correct/num all:', num_correct, num_all)
-    return num_correct / num_all, total_loss / num_batches
