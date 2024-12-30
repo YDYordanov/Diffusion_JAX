@@ -29,7 +29,9 @@ def get_a_t_hat(T: int, b_1: float=1e-4, b_last: float=2e-2):
     a_t_values = (1 - b_t_values)
 
     # a_t_hat := Product(a_i, i=1,...,t)
-    a_t_hat_values = jnp.array([a_t_values[:t].prod() for t in range(1, T)])
+    # A more efficient implementation of:
+    # jnp.array([a_t_values[:t].prod() for t in range(1, T)])
+    a_t_hat_values = jnp.cumprod(a_t_values)[:-1]
 
     return a_t_hat_values, a_t_values
 
