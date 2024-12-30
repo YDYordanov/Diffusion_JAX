@@ -103,6 +103,7 @@ def main():
     print('...the data is ready!')
 
     # Specify the model function, and initialise the parameters
+    print('Initialising model...')
     if args.model_name == 'ffn':
         model_fn = ffn_jax
         params = ffn_init(
@@ -118,7 +119,7 @@ def main():
     else:
         raise NotImplementedError
 
-
+    print('Initialising optimiser...')
     # Create the optimiser and optimiser state
     optim = optax.adamw(learning_rate=args.lr)
     opt_state = optim.init(params)
