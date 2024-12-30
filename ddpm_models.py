@@ -34,9 +34,9 @@ def get_a_t_hat(T: int, b_1: float=1e-4, b_last: float=2e-2):
     return a_t_hat_values, a_t_values
 
 
-@jax.jit
-@functools.partial(jax.vmap, in_axes=(None, 0, 0))
-def ddpm_ffn_model_fn(params: dict, x_noisy: jnp.array, t: jnp.array):
+@functools.partial(jax.jit, static_argnames=['num_h_layers'])
+@functools.partial(jax.vmap, in_axes=(None, None, 0, 0))
+def ddpm_ffn_model_fn(params: dict, num_h_layers: int, x_noisy: jnp.array, t: jnp.array):
     """
     The epsilon_theta transformation of the noisy image and t,
     but simplified: using FFN instead of U-net transformer
@@ -46,17 +46,20 @@ def ddpm_ffn_model_fn(params: dict, x_noisy: jnp.array, t: jnp.array):
         arrays=(x_noisy, jnp.expand_dims(t, axis=-1)), axis=-1)
 
     # Forward pass through the network
-    hid_state = jnp.matmul(input_array, params['layer1']['W']) + params['layer1']['b']
-    hid_state = nn.gelu(hid_state)
+    hid_state = input_array
+    for layer_id in range(num_h_layers):
+        layer_name = 'layer{}'.format(layer_id)
+        hid_state = jnp.matmul(hid_state, params[layer_name]['W']) + params[layer_name]['b']
+        hid_state = nn.gelu(hid_state)
     out = jnp.matmul(hid_state, params['projection']['W']) + params['projection']['b']
 
     return out
 
 
-@functools.partial(jax.jit, static_argnames=['model_fn', 'image_array_shape', 'T'])
+@functools.partial(jax.jit, static_argnames=['model_fn', 'num_h_layers', 'image_array_shape', 'T'])
 def sample_ddpm_image(
-        params: dict, model_fn: typing.Callable, image_array_shape: tuple, T: int,
-        a_t_values: jnp.array, a_t_hat_values: jnp.array, seed: int):
+        params: dict, num_h_layers: int, model_fn: typing.Callable, image_array_shape: tuple,
+        T: int, a_t_values: jnp.array, a_t_hat_values: jnp.array, seed: int):
     """
     Implementing sampling in DDPM for image reconstruction from noise,
     as described in Algorithm 2 (https://arxiv.org/abs/2006.11239)
@@ -74,7 +77,7 @@ def sample_ddpm_image(
 
         # Intermediate variables, for cleanliness
         a_t_coefficient = (1 - a_t_values[t-1]) / jnp.sqrt(1 - a_t_hat_values[t-1])
-        eps_theta = model_fn(params, x_t, jnp.array([t]))
+        eps_theta = model_fn(params, num_h_layers, x_t, jnp.array([t]))
         x_t_minus_eps_t = x_t - a_t_coefficient * eps_theta
 
         # (Sigma_t)^2 can be either b_t or (1-a_(t-1)^hat)/(1-a_t^hat)*b_t
@@ -89,9 +92,9 @@ def sample_ddpm_image(
     return x_t
 
 
-@functools.partial(jax.jit, static_argnames=['model_fn'])
+@functools.partial(jax.jit, static_argnames=['model_fn', 'num_h_layers'])
 def compute_ddpm_loss(
-        params: dict, x: jnp.array, eps: jnp.array,
+        params: dict, num_h_layers: int, x: jnp.array, eps: jnp.array,
         t: jnp.array, a_t_hat_values: jnp.array, model_fn: typing.Callable):
     """
     Implementing the objective function of DDPM,
@@ -101,7 +104,7 @@ def compute_ddpm_loss(
     # This corresponds to finding epsilon_theta in Algorthm 1
     a_t_hat = jnp.expand_dims(a_t_hat_values[t], axis=1)
     x_noisy = jnp.sqrt(a_t_hat) * x + jnp.sqrt(1 - a_t_hat) * eps
-    eps_theta = model_fn(params, x_noisy, t)
+    eps_theta = model_fn(params, num_h_layers, x_noisy, t)
 
     # Compute the MSE loss
     l = ((eps - eps_theta) ** 2).sum(axis=-1).mean()
@@ -109,10 +112,10 @@ def compute_ddpm_loss(
     return l
 
 
-@functools.partial(jax.jit, static_argnames=['model_fn', 'optim', 'T'])
+@functools.partial(jax.jit, static_argnames=['model_fn', 'num_h_layers', 'optim', 'T'])
 def grad_and_update_ddpm(
-        model_fn: typing.Callable, params: dict, optim, opt_state, x: jnp.array,
-        T: int, a_t_hat_values: jnp.array, seed: int):
+        model_fn: typing.Callable, params: dict, num_h_layers: int, optim, opt_state,
+        x: jnp.array, T: int, a_t_hat_values: jnp.array, seed: int):
     """
     This function implements Algorithm 1 from the DDPM work
     https://arxiv.org/abs/2006.11239
@@ -131,7 +134,7 @@ def grad_and_update_ddpm(
 
     # Compute the gradients
     grads = grad(compute_ddpm_loss)(
-        params, x, eps, t, a_t_hat_values, model_fn=model_fn)
+        params, num_h_layers, x, eps, t, a_t_hat_values, model_fn=model_fn)
 
     # Update the optimiser and the parameters
     updates, opt_state = optim.update(updates=grads, state=opt_state, params=params)
@@ -140,8 +143,8 @@ def grad_and_update_ddpm(
 
 
 def run_ddpm_epoch(
-        model_fn: typing.Callable, params: dict, T: int, a_t_hat_values: jnp.array,
-        optim, opt_state, x_train_data: jnp.array, x_dev_data: jnp.array,
+        model_fn: typing.Callable, params: dict, num_h_layers: int, T: int,
+        a_t_hat_values: jnp.array, optim, opt_state, x_train_data: jnp.array, x_dev_data: jnp.array,
         eval_interval: int=10, seed: int=32598):
     """
     T: (int), the number of diffusion steps
@@ -151,8 +154,9 @@ def run_ddpm_epoch(
         # Use the data to compute the gradients and update the optimiser and the parameters
         # This is done in a separate function to enable jax.jit optimisation with compiling
         params, opt_state, eps, t = grad_and_update_ddpm(
-            model_fn=model_fn, params=params, a_t_hat_values=a_t_hat_values,
-            optim=optim, opt_state=opt_state, x=jnp.array(x), T=T, seed=seed)
+            model_fn=model_fn, params=params, num_h_layers=num_h_layers,
+            a_t_hat_values=a_t_hat_values, optim=optim, opt_state=opt_state,
+            x=jnp.array(x), T=T, seed=seed)
 
         if (batch_id + 1) % eval_interval == 0:
             # Dev evaluation

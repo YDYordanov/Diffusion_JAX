@@ -33,6 +33,9 @@ def main():
     parser.add_argument(
         '-hs', '--h_size', type=int, default=32, help='Model hidden size.')
     parser.add_argument(
+        '-n_h_layers', '--num_h_layers', type=int, default=1,
+        help='Number of hidden layers.')
+    parser.add_argument(
         '-n_classes', '--num_classes', type=int, default=10,
         help='Number of classes for classification.')
     parser.add_argument(
@@ -102,12 +105,14 @@ def main():
     # Specify the model function, and initialise the parameters
     if args.model_name == 'ffn':
         model_fn = ffn_jax
-        params = ffn_init(in_size=in_size, h_size=args.h_size, out_size=args.num_classes)
+        params = ffn_init(
+            num_h_layers=args.num_h_layers, in_size=in_size, h_size=args.h_size, out_size=args.num_classes)
     elif args.model_name == 'ddpm':
         model_fn = ddpm_ffn_model_fn
         # Same init as FFN, but larger in_size as x_noisy and t are concatenated as input;
         # the output is of the same dimensions as x.
-        params = ffn_init(in_size=in_size+1, h_size=args.h_size, out_size=in_size)
+        params = ffn_init(
+            num_h_layers=args.num_h_layers, in_size=in_size+1, h_size=args.h_size, out_size=in_size)
         # These are constants used for DDPM
         a_t_hat_values, a_t_values = get_a_t_hat(b_1=1e-4, b_last=2e-2, T=args.T)
     else:
@@ -132,6 +137,7 @@ def main():
             # Train the FFN model for one epoch
             params, optim, opt_state = run_epoch(
                 model_fn=model_fn, params=params,
+                num_h_layers=args.num_h_layers,
                 optim=optim, opt_state=opt_state,
                 x_train_data=train_loader.x_data_array,
                 y_train_data=train_loader.y_data_array,
@@ -145,6 +151,7 @@ def main():
             epoch_seed = 250948 * (epoch + 1)
             params, optim, opt_state = run_ddpm_epoch(
                 model_fn=model_fn, params=params,
+                num_h_layers=args.num_h_layers,
                 T=args.T, a_t_hat_values=a_t_hat_values,
                 optim=optim, opt_state=opt_state,
                 x_train_data=train_loader.x_data_array,
@@ -158,6 +165,7 @@ def main():
             dev_acc, dev_loss = evaluate_model(
                 model_fn=model_fn,
                 params=params,
+                num_h_layers=args.num_h_layers,
                 x_test_data=dev_data_loader.x_data_array,
                 y_test_data=dev_data_loader.y_data_array,
                 num_classes=args.num_classes
@@ -168,7 +176,8 @@ def main():
         elif args.model_name == 'ddpm':
             # Reconstruct a random image from noise and view it
             reconstructed_image_array = sample_ddpm_image(
-                params=params, model_fn=model_fn, T=args.T, image_array_shape=(1, in_size),
+                params=params, num_h_layers=args.num_h_layers,
+                model_fn=model_fn, T=args.T, image_array_shape=(1, in_size),
                 a_t_values=a_t_values, a_t_hat_values=a_t_hat_values,
                 seed=epoch_seed+10)
             inspect_image(dataset_name=args.dataset_name, image_array=reconstructed_image_array)
@@ -181,6 +190,7 @@ def main():
         dev_acc, dev_loss = evaluate_model(
             model_fn=model_fn,
             params=params,
+            num_h_layers=args.num_h_layers,
             x_test_data=dev_data_loader.x_data_array,
             y_test_data=dev_data_loader.y_data_array,
             num_classes=args.num_classes
@@ -194,6 +204,7 @@ def main():
             evaluate_model(
                 model_fn=model_fn,
                 params=params,
+                num_h_layers=args.num_h_layers,
                 x_test_data=test_data_loader.x_data_array,
                 y_test_data=test_data_loader.y_data_array,
                 num_classes=args.num_classes
