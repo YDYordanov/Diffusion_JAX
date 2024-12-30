@@ -63,12 +63,12 @@ def sample_ddpm_image(
     :returns x_0, the reconstructed image
     """
     # First, sample x_T ~ N(0, I), in the image_array_shape
-    x_t = jrand.normal(key=jrand.key(seed=seed + 22435), shape=image_array_shape)
+    x_t = jrand.normal(key=jrand.PRNGKey(seed=seed + 22435), shape=image_array_shape)
 
     # Compute x_(T-1),...,x_0 iteratively:
     for t in range(T, 0, -1):
         if t > 0:
-            z = jrand.normal(key=jrand.key(seed=seed + 23509), shape=image_array_shape)
+            z = jrand.normal(key=jrand.PRNGKey(seed=seed + 23509), shape=image_array_shape)
         else:
             z = jnp.zeros(shape=image_array_shape)
 
@@ -122,12 +122,12 @@ def grad_and_update_ddpm(
     # Get a uniform distribution from a categorical one with equal prob-s:
     uniform_logits = jnp.ones((T, x.shape[0]))
     t = jrand.categorical(
-        key=jrand.key(seed=seed), logits=uniform_logits, axis=0
+        key=jrand.PRNGKey(seed=seed), logits=uniform_logits, axis=0
     ) + 1
 
     # Then sample epsilon ~ N(0, I), of the same shape as x
     # Note: the sample is independent across both the batch and image dimensions
-    eps = jrand.normal(key=jrand.key(seed=seed+325), shape=x.shape)
+    eps = jrand.normal(key=jrand.PRNGKey(seed=seed+325), shape=x.shape)
 
     # Compute the gradients
     grads = grad(compute_ddpm_loss)(
