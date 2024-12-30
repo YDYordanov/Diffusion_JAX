@@ -72,7 +72,7 @@ def sample_ddpm_image(
 
     # Compute x_(T-1),...,x_0 iteratively:
     for t in range(T, 0, -1):
-        if t > 0:
+        if t > 1:
             z = jrand.normal(key=jrand.PRNGKey(seed=seed + 23509), shape=image_array_shape)
         else:
             z = jnp.zeros(shape=image_array_shape)
