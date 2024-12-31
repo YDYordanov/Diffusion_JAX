@@ -58,7 +58,33 @@ def ddpm_ffn_model_fn(params: dict, num_h_layers: int, x_noisy: jnp.array, t: jn
     return out
 
 
-@functools.partial(jax.jit, static_argnames=['model_fn', 'num_h_layers', 'image_array_shape', 'T'])
+@functools.partial(jax.jit, static_argnames=['model_fn', 'num_h_layers'])
+def sample_step_ddpm(
+        params: jnp.array, num_h_layers: int, model_fn: typing.Callable,
+        x_t: jnp.array, t: jnp.array, z: jnp.array,
+        a_t_values: jnp.array, a_t_hat_values: jnp.array
+):
+    """
+    Do one sample step (out of T) of image sampling (Algorithm 2). (https://arxiv.org/abs/2006.11239)
+    :input: x_t: the value of x_t
+    :return: x_t: the value of x_(t-1)
+    """
+    # Intermediate variables, for cleanliness
+    a_t_coefficient = (1 - a_t_values[t - 1]) / jnp.sqrt(1 - a_t_hat_values[t - 1])
+    eps_theta = model_fn(params, num_h_layers, x_t, jnp.array([t]))
+    x_t_minus_eps_t = x_t - a_t_coefficient * eps_theta
+
+    # (Sigma_t)^2 can be either b_t or (1-a_(t-1)^hat)/(1-a_t^hat)*b_t
+    # (https://arxiv.org/abs/2006.11239)
+    # Note: beta_t = 1 - alpha_t
+    sigma_t = jnp.sqrt(1 - a_t_values[t])
+
+    # compute x_(t-1) by overwriting x_t
+    x_t = (1 / jnp.sqrt(a_t_values[t - 1])) * x_t_minus_eps_t + sigma_t * z
+
+    return x_t
+
+
 def sample_ddpm_image(
         params: dict, num_h_layers: int, model_fn: typing.Callable, image_array_shape: tuple,
         T: int, a_t_values: jnp.array, a_t_hat_values: jnp.array, seed: int):
@@ -77,18 +103,11 @@ def sample_ddpm_image(
         else:
             z = jnp.zeros(shape=image_array_shape)
 
-        # Intermediate variables, for cleanliness
-        a_t_coefficient = (1 - a_t_values[t-1]) / jnp.sqrt(1 - a_t_hat_values[t-1])
-        eps_theta = model_fn(params, num_h_layers, x_t, jnp.array([t]))
-        x_t_minus_eps_t = x_t - a_t_coefficient * eps_theta
-
-        # (Sigma_t)^2 can be either b_t or (1-a_(t-1)^hat)/(1-a_t^hat)*b_t
-        # (https://arxiv.org/abs/2006.11239)
-        # Note: beta_t = 1 - alpha_t
-        sigma_t = jnp.sqrt(1 - a_t_values[t])
-
-        # compute x_(t-1) by overwriting x_t
-        x_t = (1 / jnp.sqrt(a_t_values[t-1])) * x_t_minus_eps_t + sigma_t * z
+        # Run an optimised sampling step
+        # Avoid using jax.jit on the main "for" loop because jit compilation is too slow
+        x_t = sample_step_ddpm(
+            params, num_h_layers, model_fn, x_t, t, z,
+            a_t_values=a_t_values, a_t_hat_values=a_t_hat_values)
 
     # return what is essentially x_0, the reconstructed image
     return x_t
