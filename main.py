@@ -150,7 +150,7 @@ def main():
         elif args.model_name == 'ddpm':
             # Train the DDPM model for one epoch
             epoch_seed = 250948 * (epoch + 1)
-            params, optim, opt_state = run_ddpm_epoch(
+            params, optim, opt_state, train_loss = run_ddpm_epoch(
                 model_fn=model_fn, params=params,
                 num_h_layers=args.num_h_layers,
                 T=args.T, a_t_hat_values=a_t_hat_values,
@@ -160,6 +160,7 @@ def main():
                 eval_interval=args.eval_interval,
                 seed=epoch_seed
             )
+            print('Training loss:', train_loss)
 
         # Dev-evaluate the model
         if args.model_name == 'ffn':

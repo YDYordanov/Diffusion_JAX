@@ -13,7 +13,7 @@ import jax.numpy as jnp
 import jax.random as jrand
 import jax.nn as nn  # activation fn-s
 
-from jax import grad
+from jax import value_and_grad
 from tqdm import tqdm
 
 
@@ -154,13 +154,13 @@ def grad_and_update_ddpm(
     eps = jrand.normal(key=jrand.PRNGKey(seed=seed+325), shape=x.shape)
 
     # Compute the gradients
-    grads = grad(compute_ddpm_loss)(
+    loss_value, grads = value_and_grad(compute_ddpm_loss)(
         params, num_h_layers, x, eps, t, a_t_hat_values, model_fn=model_fn)
 
     # Update the optimiser and the parameters
     updates, opt_state = optim.update(updates=grads, state=opt_state, params=params)
     params = optax.apply_updates(params, updates)
-    return params, opt_state, eps, t
+    return params, opt_state, eps, t, loss_value
 
 
 def run_ddpm_epoch(
@@ -170,18 +170,27 @@ def run_ddpm_epoch(
     """
     T: (int), the number of diffusion steps
     """
+    total_loss = 0
+    num_loss_values = 0
     for batch_id, x in tqdm(enumerate(x_train_data), total=x_train_data.shape[0]):
 
         # Use the data to compute the gradients and update the optimiser and the parameters
         # This is done in a separate function to enable jax.jit optimisation with compiling
-        params, opt_state, eps, t = grad_and_update_ddpm(
+        params, opt_state, eps, t, loss_value = grad_and_update_ddpm(
             model_fn=model_fn, params=params, num_h_layers=num_h_layers,
             a_t_hat_values=a_t_hat_values, optim=optim, opt_state=opt_state,
             x=jnp.array(x), T=T, seed=seed)
 
+        # Record the training loss
+        num_loss_values += 1
+        total_loss += loss_value
+
         if (batch_id + 1) % eval_interval == 0:
+            print('Training loss:', total_loss / (batch_id+1))
             # Dev evaluation
             # ToDo: implement this
             pass
 
-    return params, optim, opt_state
+    mean_train_loss = total_loss / num_loss_values
+
+    return params, optim, opt_state, mean_train_loss
