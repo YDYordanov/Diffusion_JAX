@@ -99,7 +99,8 @@ def sample_ddpm_image(
     # Compute x_(T-1),...,x_0 iteratively:
     for t in range(T, 0, -1):
         if t > 1:
-            z = jrand.normal(key=jrand.PRNGKey(seed=seed + 23509), shape=image_array_shape)
+            z_seed = t * (seed + 23509)
+            z = jrand.normal(key=jrand.PRNGKey(seed=z_seed), shape=image_array_shape)
         else:
             z = jnp.zeros(shape=image_array_shape)
 
@@ -174,12 +175,15 @@ def run_ddpm_epoch(
     num_loss_values = 0
     for batch_id, x in tqdm(enumerate(x_train_data), total=x_train_data.shape[0]):
 
+        # Use a different seed for each iteration
+        iter_seed = seed + 325 * (batch_id + 1)
+
         # Use the data to compute the gradients and update the optimiser and the parameters
         # This is done in a separate function to enable jax.jit optimisation with compiling
         params, opt_state, eps, t, loss_value = grad_and_update_ddpm(
             model_fn=model_fn, params=params, num_h_layers=num_h_layers,
             a_t_hat_values=a_t_hat_values, optim=optim, opt_state=opt_state,
-            x=jnp.array(x), T=T, seed=seed)
+            x=jnp.array(x), T=T, seed=iter_seed)
 
         # Record the training loss
         num_loss_values += 1
