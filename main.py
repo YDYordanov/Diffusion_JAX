@@ -160,7 +160,7 @@ def main():
                 eval_interval=args.eval_interval,
                 seed=epoch_seed
             )
-            print('Training loss:', train_loss)
+            print('Epoch {} train loss: {}'.format(epoch+1, train_loss))
 
         # Dev-evaluate the model
         if args.model_name == 'ffn':
