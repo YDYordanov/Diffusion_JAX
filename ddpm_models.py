@@ -128,7 +128,7 @@ def compute_ddpm_loss(
     eps_theta = model_fn(params, num_h_layers, x_noisy, t)
 
     # Compute the MSE loss
-    l = ((eps - eps_theta) ** 2).sum(axis=-1).mean()
+    l = ((eps - eps_theta) ** 2).mean()
 
     return l
 
