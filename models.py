@@ -60,13 +60,13 @@ def ffn_jax(params: dict, num_h_layers: int, x: jnp.array):
 @functools.partial(jax.vmap, in_axes=(0, 0, None))
 def cross_entropy_loss(out: jnp.array, y: jnp.array, num_classes: int=10):
     # First, compute softmax of the outputs to obtain probabilities
-    out_probs = nn.softmax(out, axis=-1)
+    out_log_probs = nn.log_softmax(out, axis=-1)
 
     # 1-hot encode the targets y
     y_vector = nn.one_hot(y, num_classes=num_classes)
 
     # Compute log-likelihood loss w.r.t. y_vector
-    l = - jnp.log(out_probs) * y_vector
+    l = - out_log_probs * y_vector
     # Note: we skipped ".sum(axis=-1).mean()" in order to apply jax.vmap vectorisation and batching
 
     return l
