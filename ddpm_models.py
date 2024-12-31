@@ -36,6 +36,30 @@ def get_a_t_hat(T: int, b_1: float=1e-4, b_last: float=2e-2):
     return a_t_hat_values, a_t_values
 
 
+@jax.jit
+def get_t_embedding(t):
+    """
+    From ChatGPT
+    Sinusoidal time embedding (like in transformer positional encodings).
+    t is () and we return an embedding of shape (embed_dim).
+    t is shape () (scalar) because vmap gives us each sample
+    """
+    embed_dim = 128
+    # Convert t to float32 for numerical safety
+    t_float = t.astype(jnp.float32)
+
+    half_dim = embed_dim // 2
+    freqs = jnp.exp(
+        - jnp.log(10000) * jnp.arange(0, half_dim, 1) / float(half_dim)
+    )
+    # shape (batch, half_dim)
+    args = t_float * freqs
+    embedding_sin = jnp.sin(args)
+    embedding_cos = jnp.cos(args)
+    embedding = jnp.concatenate([embedding_sin, embedding_cos], axis=0)
+    return embedding
+
+
 @functools.partial(jax.jit, static_argnames=['num_h_layers'])
 @functools.partial(jax.vmap, in_axes=(None, None, 0, 0))
 def ddpm_ffn_model_fn(params: dict, num_h_layers: int, x_noisy: jnp.array, t: jnp.array):
@@ -44,8 +68,9 @@ def ddpm_ffn_model_fn(params: dict, num_h_layers: int, x_noisy: jnp.array, t: jn
     but simplified: using FFN instead of U-net transformer
     """
     # assert x_noisy.shape[0] + 1 == params['layer1']['W'].shape[0]
+    t_emb = get_t_embedding(t)
     input_array = jnp.concatenate(
-        arrays=(x_noisy, jnp.expand_dims(t, axis=-1)), axis=-1)
+        arrays=(x_noisy, t_emb), axis=-1) #jnp.expand_dims(t, axis=-1)), axis=-1)
 
     # Forward pass through the network
     hid_state = input_array

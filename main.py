@@ -112,8 +112,9 @@ def main():
         model_fn = ddpm_ffn_model_fn
         # Same init as FFN, but larger in_size as x_noisy and t are concatenated as input;
         # the output is of the same dimensions as x.
+        pos_emb_size = 128
         params = ffn_init(
-            num_h_layers=args.num_h_layers, in_size=in_size+1, h_size=args.h_size, out_size=in_size)
+            num_h_layers=args.num_h_layers, in_size=in_size+pos_emb_size, h_size=args.h_size, out_size=in_size)
         # These are constants used for DDPM
         a_t_hat_values, a_t_values = get_a_t_hat(b_1=1e-4, b_last=2e-2, T=args.T)
     else:
