@@ -29,9 +29,10 @@ def get_a_t_hat(T: int, b_1: float=1e-4, b_last: float=2e-2):
     a_t_values = (1 - b_t_values)
 
     # a_t_hat := Product(a_i, i=1,...,t)
+    # Note: to access a_t and a_t_hat use index t-1
     # A more efficient implementation of:
     # jnp.array([a_t_values[:t].prod() for t in range(1, T)])
-    a_t_hat_values = jnp.cumprod(a_t_values)[:-1]
+    a_t_hat_values = jnp.cumprod(a_t_values)
 
     return a_t_hat_values, a_t_values
 
@@ -102,7 +103,7 @@ def sample_step_ddpm(
     # (Sigma_t)^2 can be either b_t or (1-a_(t-1)^hat)/(1-a_t^hat)*b_t
     # (https://arxiv.org/abs/2006.11239)
     # Note: beta_t = 1 - alpha_t
-    sigma_t = jnp.sqrt(1 - a_t_values[t])
+    sigma_t = jnp.sqrt(1 - a_t_values[t - 1])
 
     # compute x_(t-1) by overwriting x_t
     x_t = (1 / jnp.sqrt(a_t_values[t - 1])) * x_t_minus_eps_t + sigma_t * z
@@ -149,7 +150,7 @@ def compute_ddpm_loss(
     """
     # First, forward x through the network
     # This corresponds to finding epsilon_theta in Algorthm 1
-    a_t_hat = jnp.expand_dims(a_t_hat_values[t], axis=1)
+    a_t_hat = jnp.expand_dims(a_t_hat_values[t - 1], axis=1)
     x_noisy = jnp.sqrt(a_t_hat) * x + jnp.sqrt(1 - a_t_hat) * eps
     eps_theta = model_fn(params, num_h_layers, x_noisy, t)
 
