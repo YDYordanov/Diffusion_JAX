@@ -6,7 +6,8 @@ import time
 import optax
 
 from models import run_epoch, evaluate_model, ffn_jax, ffn_init
-from ddpm_models import run_ddpm_epoch, sample_ddpm_image, ddpm_ffn_model_fn, get_a_t_hat
+from ddpm_models import (run_ddpm_epoch, sample_ddpm_image, ddpm_ffn_model_fn,
+                         b_t_linear_schedule, a_t_hat_cosine_schedule)
 from utils import (load_mnist_data, load_cifar_data, random_train_dev_split,
                    DataLoader, inspect_data, inspect_image)
 
@@ -44,6 +45,9 @@ def main():
         '-lr', '--lr', type=float, default=1e-3, help='Optimiser learning rate.')
     parser.add_argument(
         '-T', '--T', type=int, default=10, help='Number of diffusion steps.')
+    parser.add_argument(
+        '-diff_schedule', '--diffusion_schedule', choices=['linear', 'cosine'],
+        default='linear', help='The diffusion schedule for noise introduction from x_0 to x_T.')
     parser.add_argument(
         '-eval_int', '--eval_interval', type=int, default=10**5,
         help='Run dev evaluation every this many training steps.')
@@ -116,7 +120,10 @@ def main():
         params = ffn_init(
             num_h_layers=args.num_h_layers, in_size=in_size+pos_emb_size, h_size=args.h_size, out_size=in_size)
         # These are constants used for DDPM
-        a_t_hat_values, a_t_values = get_a_t_hat(b_1=1e-4, b_last=2e-2, T=args.T)
+        if args.diffusion_schedule == 'linear':
+            a_t_hat_values, a_t_values = b_t_linear_schedule(b_1=1e-4, b_last=2e-2, T=args.T)
+        elif args.diffusion_schedule == 'cosine':
+            a_t_hat_values, a_t_values = a_t_hat_cosine_schedule(T=args.T)
     else:
         raise NotImplementedError
 

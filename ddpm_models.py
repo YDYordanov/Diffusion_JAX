@@ -17,7 +17,31 @@ from jax import value_and_grad
 from tqdm import tqdm
 
 
-def get_a_t_hat(T: int, b_1: float=1e-4, b_last: float=2e-2):
+def a_t_hat_cosine_schedule(T: int, s=0.008):
+    """
+    Compute a_t_hat and a_t via cosine schedule,
+    from the IDDPM work (https://arxiv.org/abs/2102.09672)
+    :return: a_t_hat_values, a_t_values : arrays of values across t=1,...,T
+    """
+    # The cosine schedule:
+    a_t_hat_values = jnp.array([
+        jnp.cos(((t / T + s) / (1 + s)) * (jnp.pi/2)) ** 2
+        / jnp.cos((s / (1 + s)) * (jnp.pi/2)) ** 2 for t in range(1, T+1)])
+
+    # The reverse formula to obtain b_t
+    b_t_values = jnp.minimum(
+        jnp.array(
+            [1 - a_t_hat_values[t - 1] / a_t_hat_values[t - 2] if t > 1 else 1 - a_t_hat_values[0]
+            for t in range(1, T+1)]),
+        0.999)
+
+    # Get a_t from b_t, as usual
+    a_t_values = (1 - b_t_values)
+
+    return a_t_hat_values, a_t_values
+
+
+def b_t_linear_schedule(T: int, b_1: float=1e-4, b_last: float=2e-2):
     """
     Compute a_t_hat and a_t from the DDPM work (https://arxiv.org/abs/2006.11239)
     :return: a_t_hat_values, a_t_values : arrays of values across t=1,...,T
