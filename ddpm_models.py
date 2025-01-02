@@ -184,6 +184,25 @@ def compute_ddpm_loss(
     return l
 
 
+@functools.partial(jax.jit, static_argnames=['T'])
+def sample_t_eps_for_ddpm_loss(
+        x: jnp.array, T: int, seed: int):
+    """ Sample t and epsilon for Algorithm 1 (https://arxiv.org/abs/2006.11239) """
+
+    # First, sample t ~ Uniform({1, ..., T})
+    # Get a uniform distribution from a categorical one with equal prob-s:
+    uniform_logits = jnp.ones((T, x.shape[0]))
+    t = jrand.categorical(
+        key=jrand.PRNGKey(seed=seed), logits=uniform_logits, axis=0
+    ) + 1
+
+    # Then sample epsilon ~ N(0, I), of the same shape as x
+    # Note: the sample is independent across both the batch and image dimensions
+    eps = jrand.normal(key=jrand.PRNGKey(seed=seed + 325), shape=x.shape)
+
+    return t, eps
+
+
 @functools.partial(jax.jit, static_argnames=['model_fn', 'num_h_layers', 'optim', 'T'])
 def grad_and_update_ddpm(
         model_fn: typing.Callable, params: dict, num_h_layers: int, optim, opt_state,
@@ -193,16 +212,8 @@ def grad_and_update_ddpm(
     https://arxiv.org/abs/2006.11239
     """
     # We skip sampling x because we do it during data shuffling
-    # Now, sample t and epsilon as t ~ Uniform({1, ..., T})
-    # Get a uniform distribution from a categorical one with equal prob-s:
-    uniform_logits = jnp.ones((T, x.shape[0]))
-    t = jrand.categorical(
-        key=jrand.PRNGKey(seed=seed), logits=uniform_logits, axis=0
-    ) + 1
-
-    # Then sample epsilon ~ N(0, I), of the same shape as x
-    # Note: the sample is independent across both the batch and image dimensions
-    eps = jrand.normal(key=jrand.PRNGKey(seed=seed+325), shape=x.shape)
+    # Sample t and epsilon
+    t, eps = sample_t_eps_for_ddpm_loss(x=x, T=T, seed=seed)
 
     # Compute the gradients
     loss_value, grads = value_and_grad(compute_ddpm_loss)(
@@ -242,9 +253,34 @@ def run_ddpm_epoch(
         if (batch_id + 1) % eval_interval == 0:
             print('Training loss:', total_loss / (batch_id+1))
             # Dev evaluation
-            # ToDo: implement this
-            pass
+            dev_loss = evaluate_ddpm_model(
+                model_fn=model_fn, params=params, num_h_layers=num_h_layers,
+                a_t_hat_values=a_t_hat_values, x_test_data=x_dev_data, T=T)
+            print('Dev loss:', dev_loss)
 
     mean_train_loss = total_loss / num_loss_values
 
     return params, optim, opt_state, mean_train_loss
+
+
+def evaluate_ddpm_model(
+        model_fn: typing.Callable, params: jnp.array, num_h_layers: int,
+        x_test_data: jnp.array, a_t_hat_values: jnp.array, T: int):
+    """
+    Return the loss w.r.t. y_test_data
+    """
+    num_batches = 0
+    total_loss = 0
+    for batch_idx, x in enumerate(x_test_data):
+        x = jnp.array(x)
+
+        # Sample t and epsilon as before
+        t, eps = sample_t_eps_for_ddpm_loss(x=x, T=T, seed=240398+batch_idx*7)
+
+        # Compute the dev loss, accumulate, and get the average
+        dev_loss = compute_ddpm_loss(
+            params=params, num_h_layers=num_h_layers, x=x, eps=eps,
+            t=t, a_t_hat_values=a_t_hat_values, model_fn=model_fn)
+        num_batches += 1
+        total_loss += dev_loss
+    return total_loss / num_batches

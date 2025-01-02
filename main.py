@@ -5,9 +5,10 @@ import argparse
 import time
 import optax
 
-from models import run_epoch, evaluate_model, ffn_jax, ffn_init
-from ddpm_models import (run_ddpm_epoch, sample_ddpm_image, ddpm_ffn_model_fn,
-                         b_t_linear_schedule, a_t_hat_cosine_schedule)
+from models import run_epoch, evaluate_ffn_model, ffn_jax, ffn_init
+from ddpm_models import (
+    run_ddpm_epoch, sample_ddpm_image, ddpm_ffn_model_fn,
+    evaluate_ddpm_model, b_t_linear_schedule, a_t_hat_cosine_schedule)
 from utils import (load_mnist_data, load_cifar_data, random_train_dev_split,
                    DataLoader, inspect_data, inspect_image)
 
@@ -172,7 +173,7 @@ def main():
 
         # Dev-evaluate the model
         if args.model_name == 'ffn':
-            dev_acc, dev_loss = evaluate_model(
+            dev_acc, dev_loss = evaluate_ffn_model(
                 model_fn=model_fn,
                 params=params,
                 num_h_layers=args.num_h_layers,
@@ -184,20 +185,18 @@ def main():
             print('Epoch {} dev loss: {}'.format(epoch+1, dev_loss))
 
         elif args.model_name == 'ddpm':
-            # Reconstruct a random image from noise and view it
-            reconstructed_image_array = sample_ddpm_image(
-                params=params, num_h_layers=args.num_h_layers,
-                model_fn=model_fn, T=args.T, image_array_shape=(1, in_size),
-                a_t_values=a_t_values, a_t_hat_values=a_t_hat_values,
-                seed=epoch_seed+10)
-            inspect_image(dataset_name=args.dataset_name, image_array=reconstructed_image_array)
+            dev_loss = evaluate_ddpm_model(
+                model_fn=model_fn, params=params, num_h_layers=args.num_h_layers,
+                a_t_hat_values=a_t_hat_values, x_test_data=dev_data_loader.x_data_array,
+                T=args.T)
+            print('Epoch {} dev loss: {}'.format(epoch + 1, dev_loss))
 
     end_time = time.time()
     print('Training time:', end_time - start_time)
 
     # Dev-evaluate the final model
     if args.model_name == 'ffn':
-        dev_acc, dev_loss = evaluate_model(
+        dev_acc, dev_loss = evaluate_ffn_model(
             model_fn=model_fn,
             params=params,
             num_h_layers=args.num_h_layers,
@@ -208,10 +207,25 @@ def main():
         print('Final dev accuracy:', dev_acc)
         print('Final dev loss:', dev_loss)
 
+    elif args.model_name == 'ddpm':
+        dev_loss = evaluate_ddpm_model(
+            model_fn=model_fn, params=params, num_h_layers=args.num_h_layers,
+            a_t_hat_values=a_t_hat_values, x_test_data=dev_data_loader.x_data_array,
+            T=args.T)
+        print('Final dev loss:', dev_loss)
+
+        # Reconstruct a random image from noise and view it
+        reconstructed_image_array = sample_ddpm_image(
+            params=params, num_h_layers=args.num_h_layers,
+            model_fn=model_fn, T=args.T, image_array_shape=(1, in_size),
+            a_t_values=a_t_values, a_t_hat_values=a_t_hat_values,
+            seed=epoch_seed + 10)
+        inspect_image(dataset_name=args.dataset_name, image_array=reconstructed_image_array)
+
     if args.do_test:
         if args.model_name == 'ffn':
             # Test-evaluate the final model
-            evaluate_model(
+            test_acc, test_loss = evaluate_ffn_model(
                 model_fn=model_fn,
                 params=params,
                 num_h_layers=args.num_h_layers,
@@ -219,6 +233,8 @@ def main():
                 y_test_data=test_data_loader.y_data_array,
                 num_classes=args.num_classes
             )
+            print('Final test accuracy:', test_acc)
+            print('Final test loss:', test_loss)
 
 if __name__ == "__main__":
     main()

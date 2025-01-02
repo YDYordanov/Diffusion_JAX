@@ -114,7 +114,7 @@ def run_epoch(
 
         if (batch_id + 1) % eval_interval == 0:
             # Dev evaluation
-            dev_acc, dev_loss = evaluate_model(model_fn, params, x_dev_data, y_dev_data, num_classes)
+            dev_acc, dev_loss = evaluate_ffn_model(model_fn, params, x_dev_data, y_dev_data, num_classes)
             print('Dev accuracy:', dev_acc)
             print('Dev loss:', dev_loss)
 
@@ -122,7 +122,7 @@ def run_epoch(
 
 
 @functools.partial(jax.jit, static_argnames=['model_fn', 'num_h_layers', 'num_classes'])
-def evaluate_model(
+def evaluate_ffn_model(
         model_fn: typing.Callable, params: dict, num_h_layers: int,
         x_test_data: jnp.array, y_test_data: jnp.array,
         num_classes: int):
