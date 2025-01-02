@@ -65,7 +65,7 @@ def main():
     assert args.eval_interval <= 2 ** 32  # jax.jit needs it to be int32
 
     # Load the dataset
-    print('Loading and processing data...')
+    print('\nLoading and processing data...')
     if args.dataset_name == 'mnist':
         x_train, y_train, x_test, y_test = load_mnist_data(
             data_folder='data/MNIST', use_flat_images=not args.unflatten_images)
@@ -108,7 +108,7 @@ def main():
     print('...the data is ready!')
 
     # Specify the model function, and initialise the parameters
-    print('Initialising model...')
+    print('\nInitialising model...')
     if args.model_name == 'ffn':
         model_fn = ffn_jax
         params = ffn_init(
@@ -128,13 +128,13 @@ def main():
     else:
         raise NotImplementedError
 
-    print('Initialising optimiser...')
+    print('\nInitialising optimiser...')
     # Create the optimiser and optimiser state
     optim = optax.adamw(learning_rate=args.lr)
     opt_state = optim.init(params)
 
     # Do training
-    print('Training...')
+    print('\nTraining...')
     start_time = time.time()
     for epoch in range(args.num_epochs):
         # Shuffle the data at each epoch;
@@ -162,7 +162,9 @@ def main():
             params, optim, opt_state, train_loss = run_ddpm_epoch(
                 model_fn=model_fn, params=params,
                 num_h_layers=args.num_h_layers,
-                T=args.T, a_t_hat_values=a_t_hat_values,
+                T=args.T,
+                a_t_values=a_t_values,
+                a_t_hat_values=a_t_hat_values,
                 optim=optim, opt_state=opt_state,
                 x_train_data=train_loader.x_data_array,
                 x_dev_data=dev_data_loader.x_data_array,
@@ -181,20 +183,22 @@ def main():
                 y_test_data=dev_data_loader.y_data_array,
                 num_classes=args.num_classes
             )
-            print('Epoch {} dev accuracy: {}'.format(epoch+1, dev_acc))
-            print('Epoch {} dev loss: {}'.format(epoch+1, dev_loss))
+            print('Epoch {}: dev accuracy: {}'.format(epoch+1, dev_acc))
+            print('Epoch {}: dev loss: {}'.format(epoch+1, dev_loss))
 
         elif args.model_name == 'ddpm':
-            dev_loss = evaluate_ddpm_model(
+            print('\n---- Epoch {} dev evaluation ----'.format(epoch+1))
+            dev_loss_dict = evaluate_ddpm_model(
                 model_fn=model_fn, params=params, num_h_layers=args.num_h_layers,
-                a_t_hat_values=a_t_hat_values, x_test_data=dev_data_loader.x_data_array,
-                T=args.T)
-            print('Epoch {} dev loss: {}'.format(epoch + 1, dev_loss))
+                a_t_values=a_t_values, a_t_hat_values=a_t_hat_values,
+                x_test_data=dev_data_loader.x_data_array,
+                T=args.T, verbose=True)
 
     end_time = time.time()
     print('Training time:', end_time - start_time)
 
     # Dev-evaluate the final model
+    print('\n---- Final dev evaluation ----')
     if args.model_name == 'ffn':
         dev_acc, dev_loss = evaluate_ffn_model(
             model_fn=model_fn,
@@ -208,11 +212,11 @@ def main():
         print('Final dev loss:', dev_loss)
 
     elif args.model_name == 'ddpm':
-        dev_loss = evaluate_ddpm_model(
+        dev_loss_dict = evaluate_ddpm_model(
             model_fn=model_fn, params=params, num_h_layers=args.num_h_layers,
-            a_t_hat_values=a_t_hat_values, x_test_data=dev_data_loader.x_data_array,
+            a_t_values=a_t_values, a_t_hat_values=a_t_hat_values,
+            x_test_data=dev_data_loader.x_data_array,
             T=args.T)
-        print('Final dev loss:', dev_loss)
 
         # Reconstruct a random image from noise and view it
         reconstructed_image_array = sample_ddpm_image(
@@ -223,6 +227,7 @@ def main():
         inspect_image(dataset_name=args.dataset_name, image_array=reconstructed_image_array)
 
     if args.do_test:
+        print('\n---- Test evaluation ----')
         if args.model_name == 'ffn':
             # Test-evaluate the final model
             test_acc, test_loss = evaluate_ffn_model(
@@ -235,6 +240,13 @@ def main():
             )
             print('Final test accuracy:', test_acc)
             print('Final test loss:', test_loss)
+
+        elif args.model_name == 'ddpm':
+            test_loss_dict = evaluate_ddpm_model(
+                model_fn=model_fn, params=params, num_h_layers=args.num_h_layers,
+                a_t_values=a_t_values, a_t_hat_values=a_t_hat_values,
+                x_test_data=test_data_loader.x_data_array,
+                T=args.T)
 
 if __name__ == "__main__":
     main()

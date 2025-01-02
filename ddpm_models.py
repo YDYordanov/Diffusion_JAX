@@ -121,7 +121,8 @@ def sample_step_ddpm(
     """
     # Intermediate variables, for cleanliness
     a_t_coefficient = (1 - a_t_values[t - 1]) / jnp.sqrt(1 - a_t_hat_values[t - 1])
-    eps_theta = model_fn(params, num_h_layers, x_t, jnp.array([t]))
+    eps_theta = model_fn(
+        params, num_h_layers, x_t, jnp.repeat(a=jnp.array([t]), repeats=x_t.shape[0]))
     x_t_minus_eps_t = x_t - a_t_coefficient * eps_theta
 
     # (Sigma_t)^2 can be either b_t or (1-a_(t-1)^hat)/(1-a_t^hat)*b_t
@@ -227,7 +228,8 @@ def grad_and_update_ddpm(
 
 def run_ddpm_epoch(
         model_fn: typing.Callable, params: dict, num_h_layers: int, T: int,
-        a_t_hat_values: jnp.array, optim, opt_state, x_train_data: jnp.array, x_dev_data: jnp.array,
+        a_t_values: jnp.array, a_t_hat_values: jnp.array, optim, opt_state,
+        x_train_data: jnp.array, x_dev_data: jnp.array,
         eval_interval: int=10, seed: int=32598):
     """
     T: (int), the number of diffusion steps
@@ -253,10 +255,11 @@ def run_ddpm_epoch(
         if (batch_id + 1) % eval_interval == 0:
             print('Training loss:', total_loss / (batch_id+1))
             # Dev evaluation
-            dev_loss = evaluate_ddpm_model(
+            print('--- Dev evaluation ---')
+            dev_loss_dict = evaluate_ddpm_model(
                 model_fn=model_fn, params=params, num_h_layers=num_h_layers,
-                a_t_hat_values=a_t_hat_values, x_test_data=x_dev_data, T=T)
-            print('Dev loss:', dev_loss)
+                a_t_values=a_t_values, a_t_hat_values=a_t_hat_values,
+                x_test_data=x_dev_data, T=T, verbose=True)
 
     mean_train_loss = total_loss / num_loss_values
 
@@ -265,12 +268,15 @@ def run_ddpm_epoch(
 
 def evaluate_ddpm_model(
         model_fn: typing.Callable, params: jnp.array, num_h_layers: int,
-        x_test_data: jnp.array, a_t_hat_values: jnp.array, T: int):
+        x_test_data: jnp.array, a_t_values: jnp.array, a_t_hat_values: jnp.array,
+        T: int, verbose: bool=False):
     """
     Return the loss w.r.t. y_test_data
     """
     num_batches = 0
     total_loss = 0
+    total_noising_loss = 0
+    total_reconstr_loss = 0
     for batch_idx, x in enumerate(x_test_data):
         x = jnp.array(x)
 
@@ -281,6 +287,57 @@ def evaluate_ddpm_model(
         dev_loss = compute_ddpm_loss(
             params=params, num_h_layers=num_h_layers, x=x, eps=eps,
             t=t, a_t_hat_values=a_t_hat_values, model_fn=model_fn)
+
+        # Do one-step diffusion and reconstruction
+        noising_loss, reconstr_loss = one_step_reconstruction(
+            model_fn=model_fn, params=params, num_h_layers=num_h_layers,
+            x=x, a_t_values=a_t_values, a_t_hat_values=a_t_hat_values)
+
         num_batches += 1
         total_loss += dev_loss
-    return total_loss / num_batches
+        total_noising_loss += noising_loss
+        total_reconstr_loss += reconstr_loss
+
+    loss_dict = {
+        'objective_loss': total_loss / num_batches,
+        'noising_loss': total_noising_loss / num_batches,
+        'reconstr_loss': total_reconstr_loss / num_batches
+    }
+    if verbose:
+        print('Objective loss: {:.4f}'.format(loss_dict['objective_loss']))
+        print('Noising MSE loss: {:.9f}:'.format(loss_dict['noising_loss']))
+        print('Reconstruction MSE loss: {:.9f}'.format(loss_dict['reconstr_loss']))
+        print('{:.5f} times smaller reconstruction MSE loss'.format(
+            loss_dict['noising_loss'] / (loss_dict['reconstr_loss'] + 1e-20)))
+        print('')
+    return loss_dict
+
+
+@functools.partial(jax.jit, static_argnames=['model_fn', 'num_h_layers'])
+def one_step_reconstruction(
+        model_fn: typing.Callable, params: jnp.array, num_h_layers: int,
+        x: jnp.array, a_t_values: jnp.array, a_t_hat_values: jnp.array):
+    """
+    Do one step of adding noise to an image (or batch of images),
+    and then reconstructing it via the trained DDPM model.
+    Record the MSE distances of the noise procedure and between the reconstruction and original image
+    The latter MSE distance should be smaller indicating successful reconstruction.
+
+    :input: x: the image array to be altered
+    """
+    # First add the appropriate amount of noise to the image
+    # (corresponding to the final step t=1 of diffusion)
+    noisy_x = x * jnp.sqrt(a_t_values[0]) + jnp.sqrt(1 - a_t_values[0]) * jrand.normal(
+        key=jrand.PRNGKey(seed=367), shape=x.shape)
+
+    # Second, denoise the noisy image via the final DDPM reconstruction step
+    z = jnp.zeros(shape=noisy_x.shape)
+    reconstructed_x = sample_step_ddpm(
+            params, num_h_layers, model_fn, noisy_x, t=1, z=z,
+            a_t_values=a_t_values, a_t_hat_values=a_t_hat_values)
+
+    # Third, compute the two MSE losses
+    noising_loss = ((x - noisy_x) ** 2).mean()
+    reconstr_loss = ((x - reconstructed_x) ** 2).mean()
+
+    return noising_loss, reconstr_loss
