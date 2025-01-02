@@ -7,7 +7,7 @@ import optax
 
 from models import run_epoch, evaluate_ffn_model, ffn_jax, ffn_init
 from ddpm_models import (
-    run_ddpm_epoch, sample_ddpm_image, ddpm_ffn_model_fn,
+    run_ddpm_epoch, sample_ddpm_image, ddpm_ffn_init, ddpm_ffn_model_fn,
     evaluate_ddpm_model, b_t_linear_schedule, a_t_hat_cosine_schedule)
 from utils import (load_mnist_data, load_cifar_data, random_train_dev_split,
                    DataLoader, inspect_data, inspect_image)
@@ -118,7 +118,7 @@ def main():
         # Same init as FFN, but larger in_size as x_noisy and t are concatenated as input;
         # the output is of the same dimensions as x.
         pos_emb_size = 128
-        params = ffn_init(
+        params = ddpm_ffn_init(
             num_h_layers=args.num_h_layers, in_size=in_size+pos_emb_size, h_size=args.h_size, out_size=in_size)
         # These are constants used for DDPM
         if args.diffusion_schedule == 'linear':

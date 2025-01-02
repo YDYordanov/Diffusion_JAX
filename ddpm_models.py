@@ -14,6 +14,7 @@ import jax.random as jrand
 import jax.nn as nn  # activation fn-s
 
 from jax import value_and_grad
+from jax.nn.initializers import glorot_normal
 from tqdm import tqdm
 
 
@@ -85,6 +86,36 @@ def get_t_embedding(t):
     return embedding
 
 
+def ddpm_ffn_init(num_h_layers: int, in_size: int, h_size: int, out_size: int=10):
+    """
+    Get random (Xavier) initialisations of the FFN parameters
+    :return: the parameters
+    """
+    init_fn = glorot_normal()  # Xavier init
+    params = {}
+    # Initialise all hidden layers
+    for layer_id in range(num_h_layers):
+        if layer_id == 0:
+            layer_in_size = in_size
+        else:
+            layer_in_size = h_size
+        params['layer{}'.format(layer_id)] = {}
+        layer_params = params['layer{}'.format(layer_id)]
+        layer_params['W'] = init_fn(jrand.PRNGKey(235098 * (layer_id + 1)), (layer_in_size, h_size))
+        layer_params['b'] = jrand.normal(jrand.PRNGKey(1322 * (layer_id + 1)), (h_size))
+
+        if layer_id > 0:
+            layer_params['layernorm_w'] = jrand.normal(jrand.PRNGKey(2459 * (layer_id + 1)), (h_size))
+            layer_params['layernorm_b'] = jrand.normal(jrand.PRNGKey(31280 * (layer_id + 1)), (h_size))
+
+    # Initialise the final projection linear layer
+    params['projection'] = {
+        'W': init_fn(jrand.PRNGKey(23), (h_size, out_size)),
+        'b': jrand.normal(jrand.PRNGKey(125), (out_size))
+    }
+    return params
+
+
 @functools.partial(jax.jit, static_argnames=['num_h_layers'])
 @functools.partial(jax.vmap, in_axes=(None, None, 0, 0))
 def ddpm_ffn_model_fn(params: dict, num_h_layers: int, x_noisy: jnp.array, t: jnp.array):
@@ -92,17 +123,33 @@ def ddpm_ffn_model_fn(params: dict, num_h_layers: int, x_noisy: jnp.array, t: jn
     The epsilon_theta transformation of the noisy image and t,
     but simplified: using FFN instead of U-net transformer
     """
-    # assert x_noisy.shape[0] + 1 == params['layer1']['W'].shape[0]
+    # Embed t via sinusoidal embeddings, for more expressivity
     t_emb = get_t_embedding(t)
-    input_array = jnp.concatenate(
-        arrays=(x_noisy, t_emb), axis=-1) #jnp.expand_dims(t, axis=-1)), axis=-1)
+    input_array = jnp.concatenate(arrays=(x_noisy, t_emb), axis=-1)
 
     # Forward pass through the network
     hid_state = input_array
     for layer_id in range(num_h_layers):
+        in_state = hid_state  # for skip-connection
         layer_name = 'layer{}'.format(layer_id)
+
+        # Main block
         hid_state = jnp.matmul(hid_state, params[layer_name]['W']) + params[layer_name]['b']
         hid_state = nn.gelu(hid_state)
+
+        if layer_id > 0:
+            # LayerNorm;
+            # Note: this is unconditional mean and std because this fn is batch-wise vectorised
+            mean = hid_state.mean()
+            std = hid_state.std()
+            eps = 1e-10
+            ln_w = params[layer_name]['layernorm_w']
+            ln_b = params[layer_name]['layernorm_b']
+            hid_state = ln_w * (hid_state - mean) / (std + eps) + ln_b
+
+        # Skip-connection:
+        if layer_id > 0:
+            hid_state = hid_state + in_state
     out = jnp.matmul(hid_state, params['projection']['W']) + params['projection']['b']
 
     return out
