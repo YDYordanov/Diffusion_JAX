@@ -10,7 +10,8 @@ from ddpm_models import (
     run_ddpm_epoch, sample_ddpm_image, ddpm_ffn_init, ddpm_ffn_model_fn,
     evaluate_ddpm_model, b_t_linear_schedule, a_t_hat_cosine_schedule)
 from utils import (load_mnist_data, load_cifar_data, random_train_dev_split,
-                   DataLoader, inspect_data, inspect_image)
+                   DataLoader, inspect_data, inspect_image,
+                   save_checkpoint, load_checkpoint)
 
 
 def main():
@@ -55,6 +56,12 @@ def main():
     parser.add_argument(
         '-test', '--do_test', action='store_true',
         help='Run test evaluation.')
+    parser.add_argument(
+        '-resume_checkpoint', '--resume_from_checkpoint', type=str, default=None,
+        help='Resume model training from checkpoint path.')
+    parser.add_argument(
+        '-save_dir', '--save_dir', type=str, default='saved_models/test',
+        help='Directory to save the current run.')
 
     # Parse the arguments; access them via args.<argument>
     args = parser.parse_args()
@@ -107,14 +114,20 @@ def main():
     test_data_loader = DataLoader(x_data_array=x_test,y_data_array=y_test, b_size=100)
     print('...the data is ready!')
 
-    # Specify the model function, and initialise the parameters
-    print('\nInitialising model...')
+    # Specify the model function
     if args.model_name == 'ffn':
         model_fn = ffn_jax
+    elif args.model_name == 'ddpm':
+        model_fn = ddpm_ffn_model_fn
+    else:
+        raise NotImplementedError
+
+    # Initialise the parameters
+    print('\nInitialising model...')
+    if args.model_name == 'ffn':
         params = ffn_init(
             num_h_layers=args.num_h_layers, in_size=in_size, h_size=args.h_size, out_size=args.num_classes)
     elif args.model_name == 'ddpm':
-        model_fn = ddpm_ffn_model_fn
         # Same init as FFN, but larger in_size as x_noisy and t are concatenated as input;
         # the output is of the same dimensions as x.
         pos_emb_size = 128
@@ -133,6 +146,12 @@ def main():
     optim = optax.adamw(learning_rate=args.lr)
     opt_state = optim.init(params)
 
+    # Load the model and optimiser from checkpoint
+    resume_epoch = 10e10  # placeholder value
+    if args.resume_from_checkpoint is not None:
+        params, opt_state, resume_epoch = load_checkpoint(
+            checkpoint_dir=args.resume_from_checkpoint)
+
     # Do training
     print('\nTraining...')
     start_time = time.time()
@@ -141,6 +160,11 @@ def main():
         # the first shuffle may be redundant
         data_shuffle_seed = 2304
         train_loader.do_shuffle(seed=data_shuffle_seed * (epoch + 1))
+
+        # Skip epochs that are already trained
+        if args.resume_from_checkpoint is not None:
+            if epoch <= resume_epoch:
+                continue
 
         # Run one epoch of training
         if args.model_name == 'ffn':
@@ -173,6 +197,11 @@ def main():
             )
             print('Epoch {} train loss: {}'.format(epoch+1, train_loss))
 
+        # Save the model and optimiser checkpoint
+        save_checkpoint(
+            params=params, opt_state=opt_state, epoch=epoch,
+            checkpoint_dir=args.save_dir)
+
         # Dev-evaluate the model
         if args.model_name == 'ffn':
             dev_acc, dev_loss = evaluate_ffn_model(
@@ -185,7 +214,6 @@ def main():
             )
             print('Epoch {}: dev accuracy: {}'.format(epoch+1, dev_acc))
             print('Epoch {}: dev loss: {}'.format(epoch+1, dev_loss))
-
         elif args.model_name == 'ddpm':
             print('\n---- Epoch {} dev evaluation ----'.format(epoch+1))
             dev_loss_dict = evaluate_ddpm_model(

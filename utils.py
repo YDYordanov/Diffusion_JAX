@@ -310,3 +310,33 @@ class DataLoader:
         self.y_data_array = self.cut_and_batch_data(
             data_array=self.unbatched_y_data_array, num_batches=self.num_batches,
             num_examples_to_drop=self.num_extra_examples)
+
+
+def save_checkpoint(params, opt_state, epoch: int, checkpoint_dir: str):
+    """
+    Save a model checkpoint for training resumption
+    """
+    # Make the directory if it doesn't exist
+    if not os.path.exists(checkpoint_dir):
+        os.makedirs(checkpoint_dir)
+    save_path = os.path.join(checkpoint_dir, "checkpoint.pkl")
+
+    checkpoint_dict = {
+        'params': params,
+        'opt_state': opt_state,
+        'epoch': epoch
+    }
+
+    # Save the checkpoint to file
+    with open(save_path, 'wb') as f:
+        pickle.dump(checkpoint_dict, f)
+
+
+def load_checkpoint(checkpoint_dir):
+    """
+    Load a model checkpoint for training resumption
+    """
+    save_path = os.path.join(checkpoint_dir, "checkpoint.pkl")
+    with open(save_path, 'rb') as f:
+        c_dict = pickle.load(f)
+    return c_dict['params'], c_dict['opt_state'], c_dict['epoch']
