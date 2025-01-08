@@ -340,3 +340,24 @@ def load_checkpoint(checkpoint_dir):
     with open(save_path, 'rb') as f:
         c_dict = pickle.load(f)
     return c_dict['params'], c_dict['opt_state'], c_dict['epoch']
+
+
+def str_to_number(string):
+    """Convert a string to the number it represents if possible"""
+    try:
+        return int(string)
+    except ValueError:
+        try:
+            return float(string)
+        except ValueError:
+            return string
+
+
+class DotDict(dict):
+    """
+    dot.notation access to dictionary attributes
+    From: https://stackoverflow.com/questions/2352181/how-to-use-a-dot-to-access-members-of-dictionary
+    """
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__

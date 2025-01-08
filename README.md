@@ -32,7 +32,7 @@ conda activate jax_env
 3. For NVIDIA GPUs, run in terminal:
 
 ```
-pip3 install -U "jax[cuda12]"
+pip install -U "jax[cuda12]" "ray[tune]" optuna
 ```
 
 For other hardware see the [JAX documentation](https://github.com/jax-ml/jax).
