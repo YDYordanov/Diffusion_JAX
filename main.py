@@ -383,7 +383,7 @@ def main():
         'y_test': y_test
     }
     # Properly pass large objects to the train_fn()
-    # (suggested by ChatGPT)
+    # (suggested by ChatGPT; large files as arguments lead to errors with Ray workers)
     datasets_dict_ref = ray.put(datasets_dict)
 
     # Pass additional arguments to train_fn() for ray Tuner
