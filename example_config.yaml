@@ -16,7 +16,7 @@ hyperparameter_space:
     T:
         value: 1000  
     diffusion_schedule:
-        value: 'cosine'  #'linear'
+        choice: ['linear', 'cosine']  # define non-numerical search space
 
 model_constants:
     model_name: 'ddpm'
