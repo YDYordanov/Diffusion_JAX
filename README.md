@@ -39,6 +39,9 @@ For other hardware see the [JAX documentation](https://github.com/jax-ml/jax).
 
 ## Example Usage
 
+1. Edit ```example_config.yaml``` to specify the hyperparameter search (if any). 
+For good default values see ```example_config.yaml```.
+2. Run this command, where ```--num_samples``` is the number of randomly chosen hyperparameter combinations:
 ```
-python main.py -data=cifar10 -model=ffn -lr=1e-4 --num_epochs=10
+python main.py --dataset_name=mnist --config_file=example_config.yaml --num_samples=10
 ```

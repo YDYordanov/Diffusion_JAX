@@ -7,8 +7,6 @@ import time
 import yaml
 import optax
 import ray
-import pickle
-import multiprocessing as mp
 
 from functools import partial
 from ray import tune
@@ -240,38 +238,10 @@ def main():
     parser.add_argument(
         '-inspect', '--inspect_data', action='store_true',
         help='Inspect a random sample of the data (images).')
+    parser.add_argument(
+        '-config', '--config_file', type=str, default='default_config.yaml',
+        help='Set the configuration file specifying hyperparameter search and other configs.')
 
-    # The model and training parameters
-    parser.add_argument(
-        '-model', '--model_name', choices=['ffn', 'ddpm'], default='ffn')
-    parser.add_argument(
-        '-bs', '--b_size', type=int, default=64, help='Training batch size.')
-    parser.add_argument(
-        '-hs', '--h_size', type=int, default=32, help='Model hidden size.')
-    parser.add_argument(
-        '-n_h_layers', '--num_h_layers', type=int, default=1,
-        help='Number of hidden layers.')
-    parser.add_argument(
-        '-n_classes', '--num_classes', type=int, default=10,
-        help='Number of classes for classification.')
-    parser.add_argument(
-        '-ep', '--num_epochs', type=int, default=1, help='Training epochs.')
-    parser.add_argument(
-        '-lr', '--lr', type=float, default=1e-3, help='Optimiser learning rate.')
-    parser.add_argument(
-        '-T', '--T', type=int, default=10, help='Number of diffusion steps.')
-    parser.add_argument(
-        '-diff_schedule', '--diffusion_schedule', choices=['linear', 'cosine'],
-        default='linear', help='The diffusion schedule for noise introduction from x_0 to x_T.')
-    parser.add_argument(
-        '-eval_int', '--eval_interval', type=int, default=1e5,
-        help='Run dev evaluation every this many training steps.')
-    parser.add_argument(
-        '-test', '--do_test', action='store_true',
-        help='Run test evaluation.')
-    parser.add_argument(
-        '-resume_checkpoint', '--resume_from_checkpoint', type=str, default=None,
-        help='Resume model training from checkpoint path.')
     parser.add_argument(
         '-save_dir', '--save_dir', type=str, default='saved_models/test',
         help='Directory to save the current run.')
@@ -284,8 +254,6 @@ def main():
 
     if args.unflatten_images:
         raise NotImplementedError('Models are not adapted for multi-dimensional images')
-
-    assert args.eval_interval <= 2 ** 32  # jax.jit needs it to be int32
 
     # Load the dataset
     print('\nLoading and processing data...')
@@ -329,12 +297,15 @@ def main():
     print('Available resources:', ray.available_resources())
 
     # Load the .yaml configuration file
-    with open("default_config.yaml", "r") as f:
+    with open(args.config_file, "r") as f:
         config = yaml.safe_load(f)
         hyperparam_space = config['hyperparameter_space']
         print(hyperparam_space)
         model_constants = config['model_constants']
         print(model_constants)
+
+    # jax.jit needs int variables to be at most int32
+    assert float(hyperparam_space['eval_interval']['value']) <= 2 ** 32
 
     # Convert model constants to numbers if possible
     for const_name, const_value in model_constants.items():
