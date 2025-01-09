@@ -200,7 +200,7 @@ def train_fn(config, model_constants, datasets_dict_ref, in_size, checkpoint_dir
             model_fn=model_fn, T=config.T, image_array_shape=(1, in_size),
             a_t_values=a_t_values, a_t_hat_values=a_t_hat_values,
             seed=epoch_seed + 10)
-        inspect_image(dataset_name=config.dataset_name, image_array=reconstructed_image_array)
+        # inspect_image(dataset_name=config.dataset_name, image_array=reconstructed_image_array)
 
     if config.do_test:
         print('\n---- Test evaluation ----')
