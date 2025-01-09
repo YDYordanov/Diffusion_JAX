@@ -160,14 +160,8 @@ def train_fn(config, model_constants, datasets_dict_ref, in_size, checkpoint_dir
         save_checkpoint(
             params=params, opt_state=opt_state, epoch=epoch,
             checkpoint_dir=checkpoint_dir)
-        """
-        "In standard DDP training, where each worker has a copy of the full-model, 
-        you should only save and report a checkpoint from a single worker to prevent redundant uploads."
-        (https://docs.ray.io/en/latest/train/user-guides/checkpoints.html)
-        Add: "if ray.train.get_context().get_world_rank() == 0:" for distributed data parallel (DDP) training
-        """
         checkpoint = Checkpoint.from_directory(checkpoint_dir)
-        metrics = {'dev_loss': dev_loss}
+        metrics = {'dev_loss': float(dev_loss)}  # dev_loss is of JAX type
         ray.train.report(metrics=metrics, checkpoint=checkpoint) #, ray="tune")
 
     end_time = time.time()
@@ -193,6 +187,7 @@ def train_fn(config, model_constants, datasets_dict_ref, in_size, checkpoint_dir
             a_t_values=a_t_values, a_t_hat_values=a_t_hat_values,
             x_test_data=dev_data_loader.x_data_array,
             T=config.T)
+        dev_loss = dev_loss_dict['objective_loss']
 
         # Reconstruct a random image from noise and view it
         reconstructed_image_array = sample_ddpm_image(
@@ -201,6 +196,8 @@ def train_fn(config, model_constants, datasets_dict_ref, in_size, checkpoint_dir
             a_t_values=a_t_values, a_t_hat_values=a_t_hat_values,
             seed=epoch_seed + 10)
         # inspect_image(dataset_name=config.dataset_name, image_array=reconstructed_image_array)
+    else:
+        raise NotImplementedError
 
     if config.do_test:
         print('\n---- Test evaluation ----')
@@ -379,9 +376,16 @@ def main():
             mode="min"
         ),
         run_config=ray.train.RunConfig(
+            # Store inside a folder args.save_dir inside this script's parent folder
             storage_path=os.path.join(
                 os.path.dirname(os.path.abspath(__file__)),
-                args.save_dir)  # Store inside a folder args.save_dir inside this script's parent folder
+                args.save_dir),
+            # Do smart checkpointing: only keep the top <num_to_keep> checkpoints w.r.t. dev loss
+            checkpoint_config = ray.train.CheckpointConfig(
+                num_to_keep=3,
+                checkpoint_score_attribute='dev_loss',
+                checkpoint_score_order="min"
+            )
         ),
         param_space=ray_hyperparam_space
     )
