@@ -238,13 +238,18 @@ def main():
     parser.add_argument(
         '-inspect', '--inspect_data', action='store_true',
         help='Inspect a random sample of the data (images).')
+
+    # Ray arguments
     parser.add_argument(
         '-config', '--config_file', type=str, default='default_config.yaml',
         help='Set the configuration file specifying hyperparameter search and other configs.')
-
     parser.add_argument(
         '-save_dir', '--save_dir', type=str, default='saved_models/test',
-        help='Directory to save the current run.')
+        help='Directory to save the current run. '
+             'Note: this should not be an absolute path, but a relative path, inside the code directory.')
+    parser.add_argument(
+        '-temp_dir', '--temp_dir_path', type=str, default='/tmp/ray',
+        help='Ray temporary directory absolute path, at most 45 characters.')
     parser.add_argument(
         '-n_samples', '--num_samples', type=int, default=100,
         help='Number of sampled hyperparameter values when searching in Ray/Optuna.')
@@ -293,16 +298,14 @@ def main():
         x_data=x_train, y_data=y_train, dev_proportion=dev_proportion, seed=random_split_seed
     )
 
-    ray.init(num_cpus=12, num_gpus=1)
+    ray.init(num_cpus=12, num_gpus=1, _temp_dir=args.temp_dir_path)
     print('Available resources:', ray.available_resources())
 
     # Load the .yaml configuration file
     with open(args.config_file, "r") as f:
         config = yaml.safe_load(f)
         hyperparam_space = config['hyperparameter_space']
-        print(hyperparam_space)
         model_constants = config['model_constants']
-        print(model_constants)
 
     # jax.jit needs int variables to be at most int32
     assert float(hyperparam_space['eval_interval']['value']) <= 2 ** 32
@@ -373,9 +376,14 @@ def main():
             search_alg=OptunaSearch(),
             num_samples=args.num_samples,
             metric="dev_loss",
-            mode="min",
+            mode="min"
         ),
-        param_space=ray_hyperparam_space,
+        run_config=ray.train.RunConfig(
+            storage_path=os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                args.save_dir)  # Store inside a folder args.save_dir inside this script's parent folder
+        ),
+        param_space=ray_hyperparam_space
     )
     results = tuner.fit()
 
