@@ -1,0 +1,28 @@
+hyperparameter_space:
+    num_h_layers:
+        value: 10  # A constant
+    h_size:
+        value: 1024 
+        
+    num_epochs:
+        value: 100
+    b_size:
+        value: 1024
+    lr:
+        value: 2e-4
+    eval_interval:
+        value: 1e5
+        
+    T:
+        value: 1000  
+    diffusion_schedule:
+        value: 'cosine'
+
+model_constants:
+    model_name: 'ffn'
+    dataset_name: 'mnist'
+    num_classes: 10
+    resume_from_checkpoint:  # Leave empty for None
+    save_dir: 'saved_models/test'
+    do_test: 0
+
