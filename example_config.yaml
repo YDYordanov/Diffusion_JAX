@@ -19,7 +19,7 @@ hyperparameter_space:
         value: 'cosine'  #'linear'
 
 model_constants:
-    model_name: 'ffn'
+    model_name: 'ddpm'
     dataset_name: 'mnist'
     num_classes: 10
     resume_from_checkpoint:  # Leave empty for None
