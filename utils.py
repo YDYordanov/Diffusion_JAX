@@ -238,9 +238,26 @@ def joint_shuffle(x: jnp.array, y: jnp.array, seed: int=10, axis: int=0):
     return x_shuffled, y_shuffled
 
 
+def joint_shuffle_numpy(x: np.array, y: np.array, seed: int=10):
+    """
+    jointly shuffle two Numpy arrays across the first axis
+    """
+    assert x.shape[0] == y.shape[0]
+
+    # Seed the shuffling
+    np.random.seed(seed)
+
+    # Permute the indices and re-index
+    id_permutation = np.random.permutation(x.shape[0])
+    x_shuffled = x[id_permutation]
+    y_shuffled = y[id_permutation]
+
+    return x_shuffled, y_shuffled
+
+
 def random_train_dev_split(x_data, y_data, dev_proportion, seed: int=10):
     # First, shuffle the data
-    x_data, y_data = joint_shuffle(x_data, y_data, seed=seed, axis=0)
+    x_data, y_data = joint_shuffle_numpy(x_data, y_data, seed=seed)
 
     # Then, split the data according to dev_proportion
     dev_size = int(x_data.shape[0] * dev_proportion)
